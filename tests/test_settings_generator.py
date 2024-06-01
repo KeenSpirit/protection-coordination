@@ -3,7 +3,7 @@ import time
 import unittest
 import settings_generator as sg
 import matplotlib.pylab as plt
-import trip_time as tt
+from relay_coordination import trip_time as tt
 from inputs import input_file
 
 

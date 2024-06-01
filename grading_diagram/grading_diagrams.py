@@ -296,10 +296,10 @@ def faults_sheet(workbook, output, fault_type: str):
     workbook.close()
 
 
-def main():
+def create_diagrams(all_devices):
     """
     relay_grading_template: Excel relay grading template file. Normally stored on network drive.
-    input_file: Excel file of data inputs created by user. Stored in user's home directory
+    input_file: Excel file of data io_template_files created by user. Stored in user's home directory
     Relay Coordination Results: Excel file produced by the relay coordination program. Stored in user's home directory
     Relay Grading Diagram
     """

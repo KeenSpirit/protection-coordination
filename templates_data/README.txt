@@ -1,0 +1,1 @@
+Altering the name of any files in this directory may cause the script to stop working.

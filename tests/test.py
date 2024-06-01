@@ -1,9 +1,5 @@
-import matplotlib.pylab as plt
 import pandas as pd
 
-import random
-import trip_time as tt
-from setting_generators import hiset_generators as hg
 from inputs import input_file
 
 dictionary = {'Criteria:': ['Downstream device overcurrent minimum grading:', 'Downstream max fuse 2 phase minimum grading:', 'Trip time at inrush current:', 'Primary overcurrent reach factor:', 'Back-up overcurrent reach factor:', 'Overcurrent pick up exceeds load factor (x1.1)?', 'Overcurrent pick up exceeds rating factor (x1.1)?', 'Overcurrent fault slowest trip time:']}, {'X2206291': ['No downstream devices', 0.622, 0.584, 5.33, 'No downstream devices', 'Yes', 'Rating factor unknown', 0.823]}, {'X7134-C': ['No downstream devices', 0.105, 0.441, 10.39, 'No downstream devices', 'Yes', 'Rating factor unknown', 0.175]}, {'X656-F': [0.484, 0.656, 0.591, 4.04, 3.49, 'Yes', 'Rating factor unknown', 0.89]}, {'PPE13A': [0.336, 0.12, 0.15, 2.83, 1.82, 'Yes', 'Yes', 1.198]}, {'Criteria:': ['Downstream device overcurrent minimum grading:', 'Downstream max fuse 2 phase minimum grading:', 'Trip time at inrush current:', 'Primary overcurrent reach factor:', 'Back-up overcurrent reach factor:', 'Overcurrent pick up exceeds load factor (x1.1)?', 'Overcurrent pick up exceeds rating factor (x1.1)?', 'Overcurrent fault slowest trip time:']}, {'X2206291': ['No downstream devices', 0.622, 0.584, 5.33, 'No downstream devices', 'Yes', 'Rating factor unknown', 0.823]}, {'X7134-C': ['No downstream devices', 0.105, 0.441, 10.39, 'No downstream devices', 'Yes', 'Rating factor unknown', 0.175]}, {'X656-F': [0.484, 0.656, 0.591, 4.04, 3.49, 'Yes', 'Rating factor unknown', 0.89]}, {'PPE13A': [0.336, 0.12, 0.15, 2.83, 1.82, 'Yes', 'Yes', 1.198]}
