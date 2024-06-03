@@ -25,7 +25,7 @@ def ef_tms_exact(relay):
     # Set minimum TMS so that curve grades with fuse curve.
     relay.relset.ef_tms = relay.manufacturer.tms[0]
     t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_pg, f_type='EF')
-    ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_pg)
+    ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_pg)
     while t_relay < ds_melting_time + GradingParameters().fuse_grading:
         relay.relset.ef_tms += relay.manufacturer.tms[2]
         t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_pg, f_type='EF')
@@ -83,7 +83,7 @@ def ef_tms_bounded(relay):
     # Set minimum TMS so that curve grades with fuse curve by 100ms.
     relay.relset.ef_tms = relay.manufacturer.tms[0]
     t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_pg, f_type='EF')
-    ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_pg)
+    ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_pg)
     while t_relay < ds_melting_time + GradingParameters().fuse_grading:
         relay.relset.ef_tms += relay.manufacturer.tms[2]
         t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_pg, f_type='EF')
@@ -135,7 +135,7 @@ def oc_tms_exact(relay):
     # Set minimum TMS so that curve grades with fuse curve by 100ms.
     relay.relset.oc_tms = relay.manufacturer.tms[0]
     trip_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_3p, f_type='OC')
-    ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_3p)
+    ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_3p)
     while trip_relay < ds_melting_time + GradingParameters().fuse_grading:
         relay.relset.oc_tms += relay.manufacturer.tms[2]
         trip_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_3p, f_type='OC')
@@ -204,7 +204,7 @@ def oc_tms_bounded(relay):
     # Set minimum TMS so that curve grades with fuse curve by 100ms.
     relay.relset.oc_tms = relay.manufacturer.tms[0]
     t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_3p, f_type='OC')
-    ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_3p, f_type='OC')
+    ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_3p, f_type='OC')
     while t_relay < ds_melting_time + GradingParameters().fuse_grading:
         relay.relset.oc_tms += relay.manufacturer.tms[2]
         t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_3p, f_type='OC')

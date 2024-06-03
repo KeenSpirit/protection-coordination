@@ -8,7 +8,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from input_files.input_file import get_input
+from input_files.input_file import instructions, grad_param
 
 
 def query_netplan() -> tuple[str|None, float|None]:
@@ -17,7 +17,6 @@ def query_netplan() -> tuple[str|None, float|None]:
     :param netplan_inputs:
     :return:
     """
-    instructions, _, grad_param = get_input()
 
     # Input parameters
     feeder_name = instructions[0]

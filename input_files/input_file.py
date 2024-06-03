@@ -61,6 +61,10 @@ device_lookup = {
     44: '80KMax',
 }
 
+def instructions_validation(instructions: list):
+    # TODO: Validate instructions data
+    return instructions
+
 
 def input_validation(inputs: dict):
     # TODO: Validate input data
@@ -163,23 +167,26 @@ def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
     return instructions, all_devices, grad_param
 
 
+instructions, all_devices, grad_param = get_input()
+
 class GradingParameters:
     """"""
 
     def __init__(self):
         """Initialise attributes"""
-        _, _, grading_parameters = get_input()
-        self.feeder_rat_per: str = grading_parameters['Feeder rating period']
-        self.forecast_years_poe = float(grading_parameters['Load forecast years POE'])
-        self.forecast_years = float(grading_parameters['Load forecast years'])
-        self.consider_clp: str = grading_parameters['Consider cold load pickup']
-        self.pri_reach_factor = float(grading_parameters['Primary reach factor'])
-        self.bu_reach_factor = float(grading_parameters['Back-up reach factor'])
-        self.pri_slowest_clear = float(grading_parameters['Primary slowest clearing time (ms)'])
-        self.bu_slowest_clear = float(grading_parameters['Back-up slowest clearing time (ms)'])
-        self.mechanical_grading = float(grading_parameters['Electro-mechanical relay'])
-        self.static_grading = float(grading_parameters['Static relay'])
-        self.digital_grading = float(grading_parameters['Digital/numeric relay'])
-        self.fuse_grading = float(grading_parameters['Fuse'])
-        self.cb_interrupt = float(grading_parameters['CB interrupt time'])
-        self.optimization_iter = int(grading_parameters['Relay coordination optimization iterations'])
+        self.feeder_rat_per: str = grad_param['Feeder rating period']
+        self.forecast_years_poe = float(grad_param['Load forecast years POE'])
+        self.forecast_years = float(grad_param['Load forecast years'])
+        self.consider_clp: str = grad_param['Consider cold load pickup']
+        self.pri_reach_factor = float(grad_param['Primary reach factor'])
+        self.bu_reach_factor = float(grad_param['Back-up reach factor'])
+        self.pri_slowest_clear = float(grad_param['Primary slowest clearing time (ms)'])
+        self.bu_slowest_clear = float(grad_param['Back-up slowest clearing time (ms)'])
+        self.mechanical_grading = float(grad_param['Electro-mechanical relay'])
+        self.static_grading = float(grad_param['Static relay'])
+        self.digital_grading = float(grad_param['Digital/numeric relay'])
+        self.fuse_grading = float(grad_param['Fuse'])
+        self.cb_interrupt = float(grad_param['CB interrupt time'])
+        self.optimization_iter = int(grad_param['Relay coordination optimization iterations'])
+
+

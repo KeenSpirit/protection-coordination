@@ -154,7 +154,7 @@ def relay_settings(workbook, input, output, fault_type: str):
 
         relay_sheet = relay_sheets[count]
         sheet = workbook.sheets[relay_sheet]
-        sheet.range((5, 2)).value = relay                              # Sheet name
+        sheet.range((5, 2)).value = relay                               # Sheet name
         sheet.range((16, 6)).value = True                               # Pickup Confirmed
         sheet.range((5, 6)).value = earth_fault_curve                   # Earth fault curve
         sheet.range((6, 2)).value = relay_voltage                       # Voltage

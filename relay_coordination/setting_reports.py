@@ -1,4 +1,4 @@
-from trip_time import relay_trip_time
+import trip_time as tt
 from device_data import eql_fuse_data as fd
 
 
@@ -9,6 +9,7 @@ def ef_report(best_relays, ef_triggers):
     :return:
     """
 
+    # TODO: Incorporate triggers in to setting report
     ef_setting_report = {
         "Criteria:": [
             "Downstream device earth fault minimum grading:",
@@ -31,8 +32,8 @@ def ef_report(best_relays, ef_triggers):
                 b = [a for a in range(device.netdat.min_pg_fl, device.netdat.max_pg_fl, 1)]
                 min_grading = 999
                 for x in b:
-                    trip_relay_1 = relay_trip_time(device, x, f_type='EF')
-                    trip_relay_2 = relay_trip_time(relay, x, f_type='EF')
+                    trip_relay_1 = tt.relay_trip_time(device, x, f_type='EF')
+                    trip_relay_2 = tt.relay_trip_time(relay, x, f_type='EF')
                     grading_time_d = trip_relay_2 - trip_relay_1
                     if grading_time_d < min_grading:
                         min_grading = round(grading_time_d, 3)
@@ -40,8 +41,8 @@ def ef_report(best_relays, ef_triggers):
 
         # grading with downstream max fuse
         tr_max_pg = relay.netdat.tr_max_pg
-        ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, tr_max_pg)
-        trip_relay = relay_trip_time(relay, tr_max_pg, f_type='EF')
+        ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, tr_max_pg)
+        trip_relay = tt.relay_trip_time(relay, tr_max_pg, f_type='EF')
         fuse_grading_time = round(trip_relay - ds_melting_time, 3)
         max_fuse_grading = fuse_grading_time
 
@@ -58,7 +59,7 @@ def ef_report(best_relays, ef_triggers):
         b = [a for a in range(relay.netdat.min_pg_fl, relay.netdat.max_pg_fl, 1)]
         slowest_trip = 0
         for x in b:
-            trip_relay = relay_trip_time(relay, x, f_type='EF')
+            trip_relay = tt.relay_trip_time(relay, x, f_type='EF')
             if trip_relay > slowest_trip:
                 slowest_trip = round(trip_relay, 3)
         slowest_operate = slowest_trip
@@ -102,8 +103,8 @@ def oc_report(best_relays, oc_triggers):
                 b = [a for a in range(device.netdat.min_2p_fl, device.netdat.max_3p_fl, 1)]
                 min_grading = 999
                 for x in b:
-                    trip_relay_1 = relay_trip_time(device, x, f_type='OC')
-                    trip_relay_2 = relay_trip_time(relay, x, f_type='OC')
+                    trip_relay_1 = tt.relay_trip_time(device, x, f_type='OC')
+                    trip_relay_2 = tt.relay_trip_time(relay, x, f_type='OC')
                     grading_time_d = trip_relay_2 - trip_relay_1
                     if grading_time_d < min_grading:
                         min_grading = round(grading_time_d, 3)
@@ -111,17 +112,17 @@ def oc_report(best_relays, oc_triggers):
 
         # grading with downstream max fuse
         tr_max_3p = relay.netdat.tr_max_3p
-        ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, tr_max_3p)
-        trip_relay = relay_trip_time(relay, tr_max_3p, f_type='OC')
+        ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, tr_max_3p)
+        trip_relay = tt.relay_trip_time(relay, tr_max_3p, f_type='OC')
         fuse_grading_time = round(trip_relay - ds_melting_time, 3)
         max_fuse_grading = fuse_grading_time
 
         # grading with inrush
         inrush = relay.netdat.get_inrush()
         if inrush > relay.netdat.max_3p_fl:
-            trip_inrush = round(relay_trip_time(relay, relay.netdat.max_3p_fl, f_type='OC'), 3)
+            trip_inrush = round(tt.relay_trip_time(relay, relay.netdat.max_3p_fl, f_type='OC'), 3)
         else:
-            trip_inrush = round(relay_trip_time(relay, inrush, f_type='OC'), 3)
+            trip_inrush = round(tt.relay_trip_time(relay, inrush, f_type='OC'), 3)
 
         # reach factor
         primary_oc_reach = round(relay.netdat.min_2p_fl / relay.relset.oc_pu, 2)
@@ -154,7 +155,7 @@ def oc_report(best_relays, oc_triggers):
         b = [a for a in range(relay.netdat.min_2p_fl, relay.netdat.max_3p_fl, 1)]
         slowest_trip = 0
         for x in b:
-            trip_relay = relay_trip_time(relay, x, f_type='OC')
+            trip_relay = tt.relay_trip_time(relay, x, f_type='OC')
             if trip_relay > slowest_trip:
                 slowest_trip = round(trip_relay, 3)
         slowest_operate = slowest_trip

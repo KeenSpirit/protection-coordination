@@ -9,16 +9,42 @@ from input_files import fuse_inputs as fi
 from input_files.input_file import GradingParameters
 
 
-def line_fuse_study(all_devices):
+def line_fuse_study(all_devices) -> dict[str | float:dict[str | float: str]]:
     """
-
+    String 'green'/'red' is appended to results to facilitate conditional formatting in Excel.
     :param all_devices:
     :return:
     """
 
-    for device in all_devices:
-        #TODO: determine which devices require a fuse study
+    fuse_setting_report = {
+        "Criteria:": [
+            "Fuse downstream capacity x 25 (inrush withstand):",
+            "Fuse max load x 6 (clp capability):",
+            "Fuse max load x 3 (clp capability):",
+            "Fuse min melt at 300s (load capability):",
+            "Fuse downstream TR 3P % time (ds grading):",
+            "Fuse downstream TR 2P % time (ds grading):",
+            "Fuse downstream TR PG % time (ds grading):",
+            "Fuse min 2P clear time:",
+            "Fuse min PG clear time:",
+            "Fuse upsream device 3P grading margin:",
+            "Fuse upsream device PG grading margin:",
+        ]
+    }
 
+    for device in all_devices:
+        if hasattr(device, device.relset.rating):
+            # It's a fuse
+            if device.relset.status != 'Existing':
+                # New settings required
+                device_report = line_fuse(device)
+            else:
+                device_report = {device: ['', '', '', '', '', '']}
+        else:
+            device_report = {device: ['', '', '', '', '', '']}
+        fuse_setting_report.update(device_report)
+
+    return fuse_setting_report
 
 
 def line_fuse(fuse):
@@ -31,25 +57,30 @@ def line_fuse(fuse):
     df = fi.fuse_data()
 
     # Candidate fuses are the Energex standard EDO/MDO fuse sizes (as per Energex Technical Instruction TSD0019i)
-    candidate_fuses = {'8T': 1, '16K': 2, '20K': 3, '25K': 4, '40K': 5, '50K': 6, '65K': 7, '80K':8}
+    candidate_fuses = {'8T': 1, '16K': 2, '20K': 3, '25K': 4, '40K': 5, '50K': 6, '65K': 7, '80K': 8}
 
     best_score = 0
     best_fuses = []
+    fuse_reports = {}
     # Get a list of best performing fuses
     for cand in candidate_fuses:
-        fuse_score = tr_inrush_capability(df, cand, fuse)
-        fuse_score += clp_capability(df, cand, fuse)
-        fuse_score += load_capability(df, cand, fuse)
-        fuse_score += ds_grade_capability(df, cand, fuse)
-        fuse_score += min_fault_capability(df, cand, fuse)
-        fuse_score += us_grade_capability(df, cand, fuse)
+        inrush_score, inrush_vals = tr_inrush_capability(df, cand, fuse)
+        clp_score, clp_vals = clp_capability(df, cand, fuse)
+        load_score, load_vals = load_capability(df, cand, fuse)
+        ds_grade_score, ds_grade_vals = ds_grade_capability(df, cand, fuse)
+        min_fault_score, min_fault_vals = min_fault_capability(df, cand, fuse)
+        us_grade_score, us_grade_vals = us_grade_capability(df, cand, fuse)
+        fuse_score = inrush_score + clp_score + load_score + ds_grade_score + min_fault_score + us_grade_score
         if fuse_score == best_score:
             best_fuses.append(cand)
+            fuse_reports[cand] = inrush_vals + clp_vals + load_vals + ds_grade_vals + min_fault_vals + us_grade_vals
             best_score = fuse_score
         elif fuse_score > best_score:
             best_fuses = [cand]
+            fuse_reports[cand] = inrush_vals + clp_vals + load_vals + ds_grade_vals + min_fault_vals + us_grade_vals
             best_score = fuse_score
 
+    best_fuse = None
     # Select the smallest best fuse
     if len(best_fuses) == 1:
         best_fuse = best_fuses[0]
@@ -61,9 +92,9 @@ def line_fuse(fuse):
                 min_value = value
                 best_fuse = fuse
 
+    fuse.relset.rating = best_fuse
 
-    # TODO: Create fuse study report and append it to the study results dataframe
-    fuse_study_report(best_fuse)
+    return fuse_reports[best_fuse]
 
 
 def tr_inrush_capability(df, cand, fuse):
@@ -87,11 +118,17 @@ def tr_inrush_capability(df, cand, fuse):
 
     if min_melt_25_with > 0.01:
         score += 1
+        min_melt_25 = {min_melt_25_with: 'green'}
+    else:
+        min_melt_25 = {min_melt_25_with: 'red'}
 
     if min_melt_12_with > 0.1:
         score += 1
+        min_melt_12 = {min_melt_12_with: 'green'}
+    else:
+        min_melt_12 = {min_melt_12_with: 'red'}
 
-    return score
+    return score, [min_melt_25, min_melt_12]
 
 
 def clp_capability(df, cand, fuse):
@@ -112,11 +149,17 @@ def clp_capability(df, cand, fuse):
 
     if min_melt_load6 > 1:
         score += 1
+        min_melt_6 = {min_melt_load6: 'green'}
+    else:
+        min_melt_6 = {min_melt_load6: 'red'}
 
     if min_melt_load3 > 10:
         score += 1
+        min_melt_3 = {min_melt_load3: 'green'}
+    else:
+        min_melt_3 = {min_melt_load3: 'red'}
 
-    return score
+    return score, [min_melt_6, min_melt_3]
 
 def load_capability(df, cand, fuse):
     """
@@ -135,8 +178,11 @@ def load_capability(df, cand, fuse):
 
     if max_load <= 0.8 * min_melt_i_300s:
         score += 1
+        min_melt_300s = {min_melt_i_300s: 'green'}
+    else:
+        min_melt_300s = {min_melt_i_300s: 'red'}
 
-    return score
+    return score, [min_melt_300s]
 
 def ds_grade_capability(df, cand, fuse):
     """
@@ -162,16 +208,26 @@ def ds_grade_capability(df, cand, fuse):
     mdo_min_melt_2p = tt.ip_fuse_time(df, cand, fuse_tr_max_2p, bound='Min')
     mdo_min_melt_pg = tt.ip_fuse_time(df, cand, fuse.tr_max_pg, bound='Min')
 
-    if ds_fuse_clear_3p / mdo_min_melt_3p <= 0.75:
+    ratio_3p = ds_fuse_clear_3p / mdo_min_melt_3p
+    if ratio_3p <= 0.75:
         score += 1
-
-    if ds_fuse_clear_2p / mdo_min_melt_2p <= 0.75:
+        grade_3p = {ratio_3p: 'green'}
+    else:
+        grade_3p = {ratio_3p: 'red'}
+    ratio_2P = ds_fuse_clear_2p / mdo_min_melt_2p
+    if ratio_2P <= 0.75:
         score += 1
-
-    if ds_fuse_clear_pg / mdo_min_melt_pg <= 0.75:
+        grade_2p = {ratio_2P: 'green'}
+    else:
+        grade_2p = {ratio_2P: 'red'}
+    ratio_pg = ds_fuse_clear_pg / mdo_min_melt_pg
+    if ratio_pg <= 0.75:
         score += 1
+        grade_pg = {ratio_pg: 'green'}
+    else:
+        grade_pg = {ratio_pg: 'red'}
 
-    return score
+    return score, [grade_3p, grade_2p, grade_pg]
 
 
 def min_fault_capability(df, cand, fuse):
@@ -186,11 +242,17 @@ def min_fault_capability(df, cand, fuse):
 
     if fuse_clear_2p <= slowest_clearing_time:
         score += 5
+        fault_2p = {fuse_clear_2p: 'green'}
+    else:
+        fault_2p = {fuse_clear_2p: 'red'}
 
     if fuse_clear_pg <= slowest_clearing_time:
         score += 5
+        fault_pg = {fuse_clear_pg: 'green'}
+    else:
+        fault_pg = {fuse_clear_pg: 'red'}
 
-    return score
+    return score, [fault_2p, fault_pg]
 
 
 def us_grade_capability(df, cand, fuse):
@@ -204,7 +266,7 @@ def us_grade_capability(df, cand, fuse):
     """
 
     score = 0
-    fuse_grading = GradingParameters.fuse_grading
+    allowed_grading = GradingParameters.fuse_grading
 
     upstream_device = [fuse.upstream_devices][0]
     if not upstream_device:
@@ -222,15 +284,18 @@ def us_grade_capability(df, cand, fuse):
         # If upstream device settings are unknown, return 0.
         return score
 
-    if (us_tt_3p - fuse_clear_3p) <= fuse_grading:
+    fuse_grading_3p = us_tt_3p - fuse_clear_3p
+    if fuse_grading_3p <= allowed_grading:
         score += 1
-
-    if (us_tt_pg - fuse_clear_pg) <= fuse_grading:
+        grade_3p = {fuse_clear_pg: 'green'}
+    else:
+        grade_3p = {fuse_clear_pg: 'red'}
+    fuse_grading_pg = us_tt_pg - fuse_clear_pg
+    if fuse_grading_pg <= allowed_grading:
         score += 1
+        grade_pg = {fuse_clear_pg: 'green'}
+    else:
+        grade_pg = {fuse_clear_pg: 'red'}
 
-    return score
+    return score, [grade_3p, grade_pg]
 
-
-def fuse_study_report(best_fuse):
-
-    pass

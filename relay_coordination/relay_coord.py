@@ -7,6 +7,7 @@ from input_files.input_file import GradingParameters
 import trip_time as tt
 import setting_checks as sc
 import setting_reports as sr
+from line_fuse_study import study_line_fuse as slf
 
 # Set iterations of optimisation routine
 iterations = GradingParameters().optimization_iter
@@ -14,7 +15,6 @@ iterations = GradingParameters().optimization_iter
 # conform to grading constraints before aborting
 grading_check_iter = iterations * 10
 
-# TODO: Update this package to handle line fuses
 
 def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
     """
@@ -23,6 +23,7 @@ def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
     :return:
     """
 
+    fuse_setting_report = slf.line_fuse_study(all_devices)
     print("Running optimization routine")
     best_total_trip_ef, best_settings_ef, ef_triggers, failed_ef = best_relays(all_devices, f_type='EF')
     best_total_trip_oc, best_settings, oc_triggers, failed_oc = best_relays(all_devices, f_type='OC')
@@ -30,7 +31,7 @@ def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
 
     ef_setting_report = sr.ef_report(best_settings, ef_triggers)
     oc_setting_report = sr.oc_report(best_settings, oc_triggers)
-    setting_report = {**ef_setting_report, **oc_setting_report}
+    setting_report = {**ef_setting_report, **oc_setting_report, **fuse_setting_report}
     # Change upstream devices and downstream devices from objects to strings for output file
     for device in best_settings:
         relay_network_data = device.netdat
@@ -48,13 +49,16 @@ def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
     return best_settings, setting_report
 
 
-def best_relays(relays: list[object], f_type: str) -> tuple[float, list, list, int]:
+def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, list, int]:
     """
 
-    :param relays:
-    :param f_type: "EF", "OC".
+    :param all_devices:
+    :param f_type:
     :return:
     """
+
+    # Assess relays
+    relays = [device for device in all_devices if hasattr(device, device.cb_interrupt)]
 
     best_total_trip = 1000000
     best_relays = []
@@ -111,9 +115,9 @@ def objective_function(relays: list[object], f_type: str) -> float:
 
 
 def print_results(
-        best_total_trip_ef: list[object],
+        best_total_trip_ef: float,
         ef_triggers: list,
-        best_total_trip_oc: list[object],
+        best_total_trip_oc: float,
         oc_triggers: list,
         failed_ef: int,
         failed_oc: int

@@ -1,3 +1,7 @@
+from input_files.fuse_inputs import fuse_data_1 as fd_1
+from input_files.fuse_inputs import fuse_data_2 as fd_2
+
+
 def curve_parameters(curve: str) -> tuple[float, float]:
     """
 
@@ -138,7 +142,7 @@ def oc_tms_solver(relay: object, grading_parameters: object, function: str) -> f
     return tms
 
 
-def fuse_melting_time(df, fuse_name: str, fault_current: float) -> float:
+def fuse_melting_time(fuse_name: str, fault_current: float) -> float:
     """
     Interpolates the fuse melting time for a given fuse and fault current.
     :param df: grade_sheet_fuse_data()
@@ -148,10 +152,10 @@ def fuse_melting_time(df, fuse_name: str, fault_current: float) -> float:
     """
 
     # Extract the column index of the fuse
-    fuse_index = df.columns.get_loc(fuse_name)
+    fuse_index = fd_1.columns.get_loc(fuse_name)
 
     # Sort the DataFrame by the fault current column
-    df_sorted = df.sort_values(by=df.columns[0])
+    df_sorted = fd_1.sort_values(by=fd_1.columns[0])
 
     # Interpolate the melting time for the given fault current
     melting_time = df_sorted.iloc[:, [0, fuse_index]].interpolate(method='linear'). \
@@ -160,12 +164,12 @@ def fuse_melting_time(df, fuse_name: str, fault_current: float) -> float:
     return melting_time
 
 
-def ip_fuse_time(df, fuse_name, current: float, bound:str) -> float:
+def ip_fuse_time(fuse_name, current: float, bound:str) -> float:
     """
     Interpolates fuse time from given current
-    :param df: fuse_data()
+    :param fuse_name:
     :param current:
-    :param bound: "Min", "Max"
+    :param bound:
     :return:
     """
 
@@ -177,7 +181,7 @@ def ip_fuse_time(df, fuse_name, current: float, bound:str) -> float:
         time_col = f"{fuse_name}totT"
 
     # Ensure the DataFrame is sorted by i_col
-    df = df.sort_values(i_col).reset_index(drop=True)
+    df = fd_2.sort_values(i_col).reset_index(drop=True)
 
     time_interp = False
     # Find the rows where x lies between y1 and y2
@@ -193,12 +197,12 @@ def ip_fuse_time(df, fuse_name, current: float, bound:str) -> float:
     return time_interp
 
 
-def ip_fuse_current(df, fuse_name, time: float, bound:str) -> float:
+def ip_fuse_current(fuse_name, time: float, bound: str) -> float:
     """
     Interpolates fuse current from given time
-    :param df: fuse_data()
+    :param fuse_name:
     :param time:
-    :param bound: "Min", "Max"
+    :param bound:
     :return:
     """
 
@@ -210,7 +214,7 @@ def ip_fuse_current(df, fuse_name, time: float, bound:str) -> float:
         time_col = f"{fuse_name}totT"
 
     # Ensure the DataFrame is sorted by i_col
-    df = df.sort_values(time_col).reset_index(drop=True)
+    df = fd_2.sort_values(time_col).reset_index(drop=True)
 
     time_interp = False
     # Find the rows where x lies between y1 and y2

@@ -4,168 +4,23 @@
 from input_files.input_file import GradingParameters
 import trip_time as tt
 
-def ef_grade_time(relay):
-    """Grade time with all downstream devices and with upstream devices having existing settings is calculated"""
 
-    # Provisional grading criteria (NPAG, p. 132)
-    electro_m = ["Electro-mechanical", "electro-mechanical", GradingParameters().mechanical_grading]
-    static = ["Static", "static", GradingParameters().static_grading]
-    digital_numeric = ["Digital", "digital", "Numeric", "numeric", GradingParameters().digital_grading]
-
-    grading_eval = []
-    # For each relay in the downstream list:
-    # Check if downstream devices exist:
-    if not relay.netdat.downstream_devices:
-        grading_eval.append(True)
-    else:
-        for device in relay.netdat.downstream_devices:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(device.netdat.min_pg_fl, device.netdat.max_pg_fl, 1)]
-            for x in b:
-                trip_relay_1 = tt.relay_trip_time(device, x, f_type='EF')
-                trip_relay_2 = tt.relay_trip_time(relay, x, f_type='EF')
-                grading_time_d = trip_relay_2 - trip_relay_1
-                # Evaluate downstream grading against relay technology
-                if device.manufacturer.technology in electro_m:
-                    if grading_time_d >= electro_m[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif device.manufacturer.technology in static:
-                    if grading_time_d >= static[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif device.manufacturer.technology in digital_numeric:
-                    if grading_time_d >= digital_numeric[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                else:
-                    raise NameError('Relay technology input in incorrect format')
-
-    # Create a list of upstream devices with existing settings
-    existing_upstream_ef = [device for device in relay.netdat.upstream_devices if device.relset.status == "Existing"]
-    if not existing_upstream_ef:
-        pass
-    else:
-        for device in existing_upstream_ef:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(relay.netdat.min_pg_fl, relay.netdat.max_pg_fl, 1)]
-            # For each fault level, calculate the grading time
-            for x in b:
-                trip_relay_1 = tt.relay_trip_time(relay, x, f_type='EF')
-                trip_relay_2 = tt.relay_trip_time(device, x, f_type='EF')
-                grading_time_u = trip_relay_2 - trip_relay_1
-                if relay.manufacturer.technology in electro_m:
-                    if grading_time_u >= electro_m[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif relay.manufacturer.technology in static:
-                    if grading_time_u >= static[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif relay.manufacturer.technology in digital_numeric:
-                    if grading_time_u >= digital_numeric[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                else:
-                    raise NameError('Relay technology input in incorrect format')
-
-    grading_eval_all = all(grading_eval)
-
-    return grading_eval_all
-
-
-def oc_grade_time(relay):
-    """Grade time with all downstream devices and with upstream devices having existing settings is calculated
+def eval_grade_time(relay: object, f_type: str, eval_type: str) -> list[bool]:
     """
-
-    #Provisional grading criteria (NPAG, p. 132)
-    electro_m = ["Electro-mechanical", "electro-mechanical", GradingParameters().mechanical_grading]
-    static = ["Static", "static", GradingParameters().static_grading]
-    digital_numeric = ["Digital", "digital", "Numeric", "numeric", GradingParameters().digital_grading]
-
-    grading_eval = []
-    # For each relay in the downstream list:
-    # Check if downstream devices exist:
-    if not relay.netdat.downstream_devices:
-        grading_eval.append(True)
-    else:
-        for device in relay.netdat.downstream_devices:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(device.netdat.min_2p_fl, device.netdat.max_3p_fl, 1)]
-            for x in b:
-                trip_relay_1 = tt.relay_trip_time(device, x, f_type='OC')
-                trip_relay_2 = tt.relay_trip_time(relay, x, f_type='OC')
-                grading_time_d = trip_relay_2 - trip_relay_1
-                # Evaluate downstream grading against relay technology
-                if device.manufacturer.technology in electro_m:
-                    if grading_time_d >= electro_m[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif device.manufacturer.technology in static:
-                    if grading_time_d >= static[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif device.manufacturer.technology in digital_numeric:
-                    if grading_time_d >= digital_numeric[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-
-                else:
-                    raise NameError('Relay technology input in incorrect format')
-
-    # Create a list of upstream devices with existing settings (there should be max of 1...)
-    existing_upstream_oc = [device for device in relay.netdat.upstream_devices if device.relset.status == "Existing"]
-    if existing_upstream_oc:
-        for device in existing_upstream_oc:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(relay.netdat.min_2p_fl, relay.netdat.max_3p_fl, 1)]
-            # For each fault level, calculate the grading time
-            for x in b:
-                trip_relay_1 = tt.relay_trip_time(relay, x, f_type='OC')
-                trip_relay_2 = tt.relay_trip_time(device, x, f_type='OC')
-                grading_time_u = trip_relay_2 - trip_relay_1
-                if relay.manufacturer.technology in electro_m:
-                    if grading_time_u >= electro_m[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif relay.manufacturer.technology in static:
-                    if grading_time_u >= static[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                elif relay.manufacturer.technology in digital_numeric:
-                    if grading_time_u >= digital_numeric[-1]:
-                        grading_eval.append(True)
-                    else:
-                        grading_eval.append(False)
-                else:
-                    raise NameError('Relay technology input in incorrect format')
-
-    # If all grading points measures equal True, return a True result. Else return a False result.
-    grading_eval_all = all(grading_eval)
-
-    return grading_eval_all
-
-
-def ef_grading_exact(relay):
-    """ Calculate the relay required grading margin with a downstream relay (across the whole characteristic).
-
+    Calculate the relay required grading margin with a downstream relay (across the whole characteristic)
+    :param relay:
+    :param f_type:
+    :param eval_type: 'Nominal', 'Exact'
+    :return:
+    If eval_type is 'Nominal':
     Where relays of different technologies are used, the time appropriate to the technology of the downstream relay
     should be used (NPAG, p 132).
 
-    Note: Use of a fixed grading margin is only appropriate at high fault levels. At lower levels, with longer
+    Use of a fixed grading margin is only appropriate at high fault levels. At lower levels, with longer
     operating times, the permitted error specified in IEC 60255 may exceed the fixed grading margin (NPAG, p 131).
+    Hence, we also specify an exact grading margin, eval_type = 'Exact'.
 
+    if eval_type is 'Exact':
     er = relay timing error(%) of downstream relay. Relay error index is quoted by manufacturer
     ect = maximum CT ratio error (%) of downstream relay. Equal to CT composite error.
     (It can be shown that the time error for a class 10P CT will result in a max timing error of less than 10% for
@@ -184,95 +39,87 @@ def ef_grading_exact(relay):
     if not relay.netdat.downstream_devices:
         grading_eval.append(True)
     else:
-        for device in relay.netdat.downstream_devices:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(device.netdat.min_pg_fl, device.netdat.max_pg_fl, 1)]
-            for x in b:
-                t_device = tt.relay_trip_time(device, x, f_type='EF')
-                t_relay = tt.relay_trip_time(relay, x, f_type='EF')
-                grading_actual = t_relay - t_device
-                grading_required = (((2 * device.manufacturer.timing_error + device.ct.ect) / 100) * t_device
-                                    + device.cb_interrupt + device.manufacturer.overshoot
-                                    + device.manufacturer.safety_margin)
-                if grading_actual >= grading_required:
-                    grading_eval.append(True)
-                else:
-                    grading_eval.append(False)
+        for ds_device in relay.netdat.downstream_devices:
+            grading_eval.extend(_grade_time(ds_device, relay, f_type, eval_type))
 
-    # Create a list of upstream devices with existing settings (there should be max of 1...)
-    existing_upstream_ef = [device for device in relay.netdat.upstream_devices if
-                            device.relset.status == "Existing"]
-    if not existing_upstream_ef:
+    # Create a list of upstream devices with existing settings
+    existing_upstream = [device for device in relay.netdat.upstream_devices if device.relset.status == "Existing"]
+    if not existing_upstream:
         pass
     else:
-        for device in existing_upstream_ef:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(relay.netdat.min_pg_fl, relay.netdat.max_pg_fl, 1)]
-            # For each fault level, calculate the grading time
-            for x in b:
-                trip_relay_1 = tt.relay_trip_time(relay, x, f_type='EF')
-                trip_relay_2 = tt.relay_trip_time(device, x, f_type='EF')
-                grading_time_u = trip_relay_2 - trip_relay_1
-                grading_required = (((2 * relay.manufacturer.timing_error + relay.ct.ect) / 100) * trip_relay_1
-                                    + relay.cb_interrupt + relay.manufacturer.overshoot
-                                    + relay.manufacturer.safety_margin)
-                if grading_time_u >= grading_required:
-                    grading_eval.append(True)
-                else:
-                    grading_eval.append(False)
+        for us_device in existing_upstream:
+            grading_eval.extend(_grade_time(relay, us_device, f_type, eval_type))
 
-    # If all grading point evaluations equal True, return a True result. Else return a False result.
     grading_eval_all = all(grading_eval)
+
     return grading_eval_all
 
 
-def oc_grading_exact(relay):
-    """
-    Calculate the relay required grading margin with a downstream relay (across the whole characteristic).
+def _grade_time(ds_device: object, us_device: object, f_type: str, eval_type: str) -> list[bool]:
     """
 
-    grading_eval = []
-    # For each relay in the downstream list:
-    # Check if downstream devices exist:
-    if not relay.netdat.downstream_devices:
-        grading_eval.append(True)
-    else:
-        for device in relay.netdat.downstream_devices:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(device.netdat.min_2p_fl, device.netdat.max_3p_fl, 1)]
-            for x in b:
-                t_ds_device = tt.relay_trip_time(device, x, f_type='OC')
-                t_relay = tt.relay_trip_time(relay, x, f_type='OC')
-                grading_actual = t_relay - t_ds_device
-                grading_required = (((2 * device.manufacturer.timing_error + device.ct.ect) / 100) * t_ds_device
-                                    + device.cb_interrupt + device.manufacturer.overshoot
-                                    + device.manufacturer.safety_margin)
-                if grading_actual >= grading_required:
-                    grading_eval.append(True)
-                else:
-                    grading_eval.append(False)
+    :param ds_device:
+    :param us_device:
+    :param f_type:
+    :param eval_type: 'Nominal', 'Exact'
+    :return:
+    """
 
-    # Create a list of upstream devices with existing settings (there should be max of 1...)
-    existing_upstream_oc = [device for device in relay.netdat.upstream_devices if device.relset.status == "Existing"]
-    if not existing_upstream_oc:
-        pass
-    else:
-        for device in existing_upstream_oc:
-            # Create a list of fault levels over which to compare curves
-            b = [a for a in range(relay.netdat.min_2p_fl, relay.netdat.max_3p_fl, 1)]
-            # For each fault level, calculate the grading time
-            for x in b:
-                trip_relay_1 = tt.relay_trip_time(relay, x, f_type='OC')
-                trip_relay_2 = tt.relay_trip_time(device, x, f_type='OC')
-                grading_time_u = trip_relay_2 - trip_relay_1
-                grading_required = (((2 * relay.manufacturer.timing_error + relay.ct.ect) / 100) * trip_relay_1
-                                    + relay.cb_interrupt + relay.manufacturer.overshoot
-                                    + relay.manufacturer.safety_margin)
-                if grading_time_u >= grading_required:
-                    grading_eval.append(True)
-                else:
-                    grading_eval.append(False)
+    eval = []
+    # Create a list of fault levels over which to compare curves
+    min_fl, max_fl = _min_max_fl(ds_device, f_type)
+    b = [a for a in range(min_fl, max_fl, 1)]
+    for x in b:
+        if hasattr(ds_device, ds_device.cb_interrupt):
+            trip_ds_device = tt.relay_trip_time(ds_device, x, f_type)
+        else:
+            trip_ds_device = tt.fuse_melting_time(ds_device.name, x)
+        trip_us_device = tt.relay_trip_time(us_device, x, f_type)
+        grading_actual = trip_us_device - trip_ds_device
+        # Evaluate downstream grading against device technology
+        eval.append(_grading_eval(ds_device, trip_ds_device, grading_actual, eval_type))
 
-    # If all grading point evaluations equal True, return a True result. Else return a False result.
-    grading_eval_all = all(grading_eval)
-    return grading_eval_all
+    return eval
+
+
+def _grading_eval(device: object, device_trip: float, grading_actual: float, eval_type: str) -> bool:
+    """
+
+    :param device:
+    :param device_trip:
+    :param grading_actual:
+    :param eval_type:
+    :return:
+    """
+
+    if hasattr(device, device.cb_interrupt):
+        if eval_type == 'Exact':
+            grading_required = (((2 * device.manufacturer.timing_error + device.ct.ect) / 100) * device_trip
+                                + device.cb_interrupt + device.manufacturer.overshoot
+                                + device.manufacturer.safety_margin)
+        elif device.manufacturer.technology == "Electro-mechanical":
+            grading_required = GradingParameters().mechanical_grading
+        elif device.manufacturer.technology == "Static":
+            grading_required = GradingParameters().static_grading
+        else:                       # device.manufacturer.technology == "Digital"
+            grading_required = GradingParameters().digital_grading
+    else:
+        grading_required = GradingParameters().fuse_grading
+
+    if grading_actual >= grading_required:
+        eval = True
+    else:
+        eval = False
+
+    return eval
+
+
+def _min_max_fl(device: object, f_type: str) -> tuple[float, float]:
+    if f_type == 'EF':
+        min_fl = device.netdat.min_pg_fl
+        max_fl = device.netdat.max_pg_fl
+    else:
+        min_fl = device.netdat.min_2p_fl
+        max_fl = device.netdat.max_3p_fl
+    return min_fl, max_fl
+

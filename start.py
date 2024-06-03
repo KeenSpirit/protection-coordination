@@ -9,6 +9,8 @@ import time
 import sys
 import powerfactory as pf
 from input_files import input_file
+# from input_files.input_file import instructions, all_devices
+from load_rating_data import device_load_rating as dlr
 from fault_level_data import fault_data
 from relay_coordination import relay_coord as rc
 from grading_diagram import grading_diagrams as gd
@@ -35,7 +37,6 @@ def main():
     feeder = instructions[0]
     study_type = instructions[1]
     app = pf.GetApplication()
-    # TODO: think about how to incorporate the query_netplan() function to obtain the load and rating data
 
     # Assess what type of study is required.
     if study_type == 1:
@@ -45,6 +46,7 @@ def main():
     elif study_type == 2:
         print("User has selected a full study (fault levels + relay coordination + grading diagram)")
         gen_info, all_devices, detailed_fls = fault_data.fault_study(app, all_devices, feeder)
+        dlr.get_load_rating()
         all_devices, setting_report = rc.relay_coordination(all_devices)
         gd.create_diagrams(all_devices)
     elif study_type == 3:
@@ -54,6 +56,7 @@ def main():
     elif study_type == 4:
         print("User has selected a relay coordination study only")
         gen_info, detailed_fls = None, None
+        dlr.get_load_rating()
         all_devices, setting_report = rc.relay_coordination(all_devices)
     elif study_type == 5:
         print("User has selected Create a Grading diagram only")
@@ -61,9 +64,9 @@ def main():
         gd.create_diagrams(all_devices)
     else:
         print("User has selected a line fuse study")
-        # TODO: write this function
-        gen_info, detailed_fls, all_devices, setting_report = None, None, None, None
-        slf.line_fuse(all_devices)
+        dlr.get_load_rating()
+        gen_info, detailed_fls = None, None
+        setting_report = slf.line_fuse_study(all_devices)
 
     save.save_dataframe(app, study_type, gen_info, all_devices, setting_report, detailed_fls)
 

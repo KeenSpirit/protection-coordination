@@ -30,6 +30,7 @@ def save_dataframe(app, study_type, gen_info: list, all_devices: list,
     feeder_name, study_type, grid_data_df, study_results, df_device_list = (
         format_results(study_type, gen_info, all_devices, setting_report, detailed_fls))
 
+    #TODO: use Excel conditional formatting rules
     with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
         # General Information sheet
         grid_data_df.to_excel(writer, sheet_name='General Information', startrow=9, index=False)

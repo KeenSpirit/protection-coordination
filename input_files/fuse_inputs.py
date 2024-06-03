@@ -24,3 +24,7 @@ def fuse_data():
     with open(f'{path_}/EQL Fuse Data.csv', 'r') as file:
         df = pd.read_csv(file)
     return df
+
+
+fuse_data_1 = grade_sheet_fuse_data()
+fuse_data_2 = fuse_data()

@@ -149,10 +149,10 @@ def generate_oc_settings(relays, percentage):
                 tms_range = oc_tms_bounded[1] - oc_tms_bounded[0]
                 current_setting = relay.relset.oc_tms
                 # furthest_bound = distance from current (best) setting to furtherest bound
-                # new setting is drawn from a uniform distribution centered on the current setting and bounded by a percentage
+                # New setting is drawn from a uniform distribution centered on the current setting and bounded by a percentage
                 # distance to the furthest_bound. This percentage distance decreases proportional to the iteration progress.
                 # If tms setting is outside tms_bounds, new_setting will be taken from a percentage distance from closest
-                # bound to fatherest_bound.
+                # bound to furthest_bound.
 
                 if oc_tms_bounded[0] < current_setting < oc_tms_bounded[1]:
                     dist_min = abs(current_setting - oc_tms_bounded[0])
