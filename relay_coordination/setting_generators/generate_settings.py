@@ -8,34 +8,9 @@ def generate_ef_settings(relays, percentage):
 
     grading_check = True
     for relay in relays:
-        ef_bounds = pg.ef_pick_up(relay)
-        pu_range = ef_bounds[1] - ef_bounds[0]
-        current_setting = relay.relset.ef_pu
-        # furthest_bound = distance from current (best) setting to furtherest bound
-        # new setting is drawn from a uniform distribution centered on the current setting and bounded by a percentage
-        # distance to the furthest_bound. This percentage distance decreases proportional to the iteration progress.
-        # If current setting is outside oc_bounds, new_setting will be taken from a percentage distance from closest
-        # bound to fatherest_bound.
+        generate_pickup(relay, percentage, f_type='EF')
 
-        if ef_bounds[0] < current_setting < ef_bounds[1]:
-            dist_min = abs(current_setting - ef_bounds[0])
-            dist_max = abs(current_setting - ef_bounds[1])
-            if dist_max > dist_min:
-                furthest_dist = dist_max
-            else:
-                furthest_dist = dist_min
-            new_distance = percentage * furthest_dist
-            new_min_bound = max((current_setting - new_distance), ef_bounds[0])
-            new_max_bound = min((current_setting + new_distance), ef_bounds[1])
-            relay.relset.ef_pu = relay.pu_converter(uniform(new_min_bound, new_max_bound), f_type="EF")
-        elif current_setting < ef_bounds[0]:
-            new_max_bound = ef_bounds[0] + (percentage * pu_range)
-            relay.relset.ef_pu = relay.pu_converter(uniform(ef_bounds[0], new_max_bound), f_type="EF")
-            pass
-        else:
-            new_min_bound = ef_bounds[1] - (percentage * pu_range)
-            relay.relset.ef_pu = relay.pu_converter(uniform(new_min_bound, ef_bounds[1]), f_type="EF")
-
+        # HIGHSET & CURVE
         if round(uniform(0, 1)) < percentage:
             # hiset setting for all iterations will be a random choice from scenarios
             ef_hiset_scenarios = hg.ef_hiset_mintime(relay)
@@ -51,6 +26,7 @@ def generate_ef_settings(relays, percentage):
             # use existing (best) relay settings
             pass
 
+        # TMS
         if round(uniform(0, 1)) > 0.5:
             ef_tms_exact = tg.ef_tms_exact(relay)
             relay.relset.ef_tms = relay.tms_converter(ef_tms_exact)
@@ -96,33 +72,7 @@ def generate_oc_settings(relays, percentage):
 
     grading_check = True
     for relay in relays:
-        oc_bounds = pg.oc_pick_up(relay)
-        pu_range = oc_bounds[1] - oc_bounds[0]
-        current_setting = relay.relset.oc_pu
-        # furthest_bound = distance from current (best) setting to furtherest bound
-        # new setting is drawn from a uniform distribution centered on the current setting and bounded by a percentage
-        # distance to the furthest_bound. This percentage distance decreases proportional to the iteration progress.
-        # If current setting is outside oc_bounds, new_setting will be taken from a percentage distance from closest
-        # bound to fatherest_bound.
-
-        if oc_bounds[0] < current_setting < oc_bounds[1]:
-            dist_min = abs(current_setting - oc_bounds[0])
-            dist_max = abs(current_setting - oc_bounds[1])
-            if dist_max > dist_min:
-                furthest_dist = dist_max
-            else:
-                furthest_dist = dist_min
-            new_distance = percentage * furthest_dist
-            new_min_bound = max((current_setting - new_distance), oc_bounds[0])
-            new_max_bound = min((current_setting + new_distance), oc_bounds[1])
-            relay.relset.oc_pu = relay.pu_converter(uniform(new_min_bound, new_max_bound), f_type="OC")
-        elif current_setting < oc_bounds[0]:
-            new_max_bound = oc_bounds[0] + (percentage * pu_range)
-            relay.relset.oc_pu = relay.pu_converter(uniform(oc_bounds[0], new_max_bound), f_type="OC")
-            pass
-        else:
-            new_min_bound = oc_bounds[1] - (percentage * pu_range)
-            relay.relset.oc_pu = relay.pu_converter(uniform(new_min_bound, oc_bounds[1]), f_type="OC")
+        generate_pickup(relay, percentage, f_type='OC')
 
         if round(uniform(0, 1)) < percentage:
             # hiset setting for all iterations will be a random choice from scenarios
@@ -178,5 +128,51 @@ def generate_oc_settings(relays, percentage):
                 break
     return grading_check
 
+
+def generate_pickup(relay, percentage, f_type):
+    """
+    furthest_bound = distance from current (best) setting to the farthest bound
+    New setting is drawn from a uniform distribution centered on the current setting and bounded by a percentage
+    distance to the furthest_bound. This percentage distance decreases proportional to the iteration progress.
+    If current setting is outside bounds, new_setting will be taken from a percentage distance from the closest
+    bound to the farthest bound.
+    :param relay:
+    :param percentage:
+    :param f_type:
+    :return:
+    """
+
+    if f_type == 'EF':
+        current_pickup = relay.relset.ef_pu
+        bounds = pg.ef_pick_up(relay)
+    else:
+        current_pickup = relay.relset.oc_pu
+        bounds = pg.oc_pick_up(relay)
+
+    pu_range = bounds[1] - bounds[0]
+
+    if bounds[0] < current_pickup < bounds[1]:
+        dist_min = abs(current_pickup - bounds[0])
+        dist_max = abs(current_pickup - bounds[1])
+        if dist_max > dist_min:
+            furthest_dist = dist_max
+        else:
+            furthest_dist = dist_min
+        new_distance = percentage * furthest_dist
+        new_min_bound = max((current_pickup - new_distance), bounds[0])
+        new_max_bound = min((current_pickup + new_distance), bounds[1])
+        new_pickup = relay.pu_converter(uniform(new_min_bound, new_max_bound), f_type)
+    elif current_pickup < bounds[0]:
+        new_max_bound = bounds[0] + (percentage * pu_range)
+        new_pickup = relay.pu_converter(uniform(bounds[0], new_max_bound), f_type)
+        pass
+    else:
+        new_min_bound = bounds[1] - (percentage * pu_range)
+        new_pickup = relay.pu_converter(uniform(new_min_bound, bounds[1]), f_type)
+
+    if f_type == 'EF':
+        relay.relset.ef_pu = new_pickup
+    else:
+        relay.relset.oc_pu = new_pickup
 
 

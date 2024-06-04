@@ -153,8 +153,8 @@ class NetworkData:
         """
         self.voltage: float = network[0]
         self.i_split: int = network[1]       # Current split n:1
-        self.rating: float = network[2]        # Section conductor 2HR rating. If 0, this isn't a feeder relay
         self.load: float = network[3]          # Would this be the five year 10% POE peak load?
+        self.rating: float = network[2]        # Section conductor 2HR rating. If 0, this isn't a feeder relay
         self.ds_capacity: float = network[4]   # Units (A)
         self.max_3p_fl: float = network[5]
         self.max_pg_fl: float = network[6]

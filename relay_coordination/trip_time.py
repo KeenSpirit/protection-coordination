@@ -1,6 +1,5 @@
-from input_files.fuse_inputs import fuse_data_1 as fd_1
-from input_files.fuse_inputs import fuse_data_2 as fd_2
-
+from input_files.fuse_inputs import fuse_data_1 as fd_1, fuse_data_2 as fd_2
+from input_files.input_file import GradingParameters
 
 def curve_parameters(curve: str) -> tuple[float, float]:
     """
@@ -90,53 +89,40 @@ def relay_trip_time(relay, fault_level, f_type):
     return trip_time
 
 
-def ef_tms_solver(relay: object, grading_parameters: object, function: str) -> float:
+def tms_solver(relay: object, f_type: str, function: str) -> float:
     """
-    Calculate tms associated with slowest permissible fault clearing time
+    Calculate tms associated with the slowest permissible fault clearing time
     :param relay:
-    :param grading_parameters:
+    :param f_type:
     :param function:
     :return:
     """
+
+    if f_type == 'EF':
+        pri_fl = relay.netdat.min_pg_fl
+        curve = relay.relset.ef_curve
+        pu = relay.relset.ef_pu
+    else:
+        pri_fl = relay.netdat.min_2p_fl
+        curve = relay.relset.oc_curve
+        pu = relay.relset.oc_pu
+
     if function == 'primary':
-        fault_level = relay.netdat.min_pg_fl
-        op_time = grading_parameters.pri_slowest_clear
+        fault_level = pri_fl
+        op_time = GradingParameters().pri_slowest_clear
     else:
         if relay.netdat.downstream_devices:
-            fault_level = min([device.netdat.min_pg_fl for device in relay.netdat.downstream_devices])
-            op_time = grading_parameters.bu_slowest_clear
+            if f_type == 'EF':
+                fault_level = min([device.netdat.min_pg_fl for device in relay.netdat.downstream_devices])
+            else:
+                fault_level = min([device.netdat.min_2p_fl for device in relay.netdat.downstream_devices])
+            op_time = GradingParameters().bu_slowest_clear
         else:
             return False
 
-    k, a = curve_parameters(relay.relset.ef_curve)
+    k, a = curve_parameters(curve)
 
-    multiplier = fault_level / relay.relset.ef_pu
-    tms = ((multiplier ** a - 1) * op_time) / k
-
-    return tms
-
-
-def oc_tms_solver(relay: object, grading_parameters: object, function: str) -> float:
-    """
-    Calculate tms associated with slowest permissible fault clearing time
-    :param relay:
-    :param grading_parameters:
-    :param function:
-    :return:
-    """
-    if function == 'primary':
-        fault_level = relay.netdat.min_2p_fl
-        op_time = grading_parameters.pri_slowest_clear
-    else:
-        if relay.netdat.downstream_devices:
-            fault_level = min([device.netdat.min_2p_fl for device in relay.netdat.downstream_devices])
-            op_time = grading_parameters.bu_slowest_clear
-        else:
-            return False
-
-    k, a = curve_parameters(relay.relset.oc_curve)
-
-    multiplier = fault_level / relay.relset.oc_pu
+    multiplier = fault_level / pu
     tms = ((multiplier ** a - 1) * op_time) / k
 
     return tms
@@ -164,7 +150,7 @@ def fuse_melting_time(fuse_name: str, fault_current: float) -> float:
     return melting_time
 
 
-def ip_fuse_time(fuse_name, current: float, bound:str) -> float:
+def ip_fuse_time(fuse_name, current: float, bound: str) -> float:
     """
     Interpolates fuse time from given current
     :param fuse_name:

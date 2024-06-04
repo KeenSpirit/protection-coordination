@@ -6,6 +6,7 @@ ef_pick_up(relay)
 
 from input_files.input_file import GradingParameters
 
+#TODO: Ensure this code is compatible with downstream line fuses
 
 def ef_pick_up(relay):
     """Calculates the required protection relay earth fault pick-up.

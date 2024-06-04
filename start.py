@@ -9,7 +9,6 @@ import time
 import sys
 import powerfactory as pf
 from input_files import input_file
-# from input_files.input_file import instructions, all_devices
 from load_rating_data import device_load_rating as dlr
 from fault_level_data import fault_data
 from relay_coordination import relay_coord as rc
@@ -21,7 +20,7 @@ import save_dataframe as save
 def main():
     """
 
-    All documents are store and saved to home/RelayCoordinationStudies
+    All documents are stored and saved to home/RelayCoordinationStudies
     Input file (template):
     - Relay data input sheet
 

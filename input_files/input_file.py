@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 from device_data import eql_relay_data as re
 from device_data import eql_fuse_data as fu
-from device_data.eql_fuse_data import LineFuse
+from device_data.eql_fuse_data import LineFuse, fuse_list
 from device_data.eql_relay_data import ProtectionRelay
 
 status_lookup = {1: False, 2: 'Existing', 3: 'Required', 4: 'New'}
@@ -61,20 +61,6 @@ device_lookup = {
     44: '80KMax',
 }
 
-def instructions_validation(instructions: list):
-    # TODO: Validate instructions data
-    return instructions
-
-
-def input_validation(inputs: dict):
-    # TODO: Validate input data
-    return inputs
-
-
-def parameters_validation(grad_param: dict):
-    # TODO: Validate input data
-    return grad_param
-
 
 def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
     """
@@ -98,9 +84,10 @@ def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
     inputs = data['Inputs']
     grad_param = data['Grading Parameters']
 
-    feeder_cell = instruction.at[10, 'H']
-    instructions_cell = instruction.at[13, 'H']
-    instructions = [feeder_cell, instructions_cell]
+    feeder_cell = instruction.at[11, 'B']
+    instructions_cell = instruction.at[14, 'B']
+    netplan_cell = instruction.at[18, 'B']
+    instructions = [feeder_cell, instructions_cell, netplan_cell]
 
     inputs = inputs.loc[:, ~inputs.columns.str.contains('Unnamed|^$')]
     # Remove first column
@@ -108,7 +95,6 @@ def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
     inputs = inputs.fillna("")
     # Transform dataframe into dictionary
     inputs = inputs.to_dict('list')
-    input_validation(inputs)
 
     grad_param = grad_param.loc[:, ~grad_param.columns.str.contains('Unnamed|^$')]
     # remove first column
@@ -116,7 +102,6 @@ def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
     grad_param = grad_param.fillna("")
     # Transform dataframe into dictionary
     grad_param = grad_param.to_dict('list')
-    grad_param = parameters_validation(grad_param)
 
     def split_string(object):
         if type(object) == str:
@@ -126,22 +111,23 @@ def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
 
     all_devices = []
     for device, data in inputs.items():
-        # if device is a relay:
+        # If device is a relay:
         if 2 <= data[0] <= 26:
             parameters = [device, re.relay_lookup[data[0]], grad_param['CB interrupt time']]
-            settings = [status_lookup[data[1]], data[7], data[8], curve_lookup[data[9]], data[10], data[11], data[12], data[13],
-                        data[14], data[15], curve_lookup[data[16]], data[17], data[18], data[19], data[20]]
-            network = [voltage_lookup[data[2]], data[3], data[22], data[21], data[23], data[24], data[25], data[26], data[27],
-                       data[28], data[29], data[30], data[31], split_string(data[32]), split_string(data[33])]
-            ct_data = [data[4], data[5], data[6]]
+            settings = [status_lookup[data[1]], data[21], data[22], curve_lookup[data[23]], data[24], data[25],
+                        data[26], data[27], data[28], data[29], curve_lookup[data[30]], data[31], data[32], data[33],
+                        data[34]]
+            network = [voltage_lookup[data[2]], data[3], data[22], data[21], data[23], data[24], data[25], data[26],
+                       data[27], data[28], data[29], data[30], data[31], split_string(data[32]), split_string(data[33])]
+            ct_data = [data[18], data[19], data[20]]
             new_relay = re.ProtectionRelay(parameters, settings, network, ct_data)
             all_devices.append(new_relay)
-        # if device a fuse:
+        # If device a fuse:
         elif data[0] > 26:
             parameters = [device]
             settings = [status_lookup[data[1]], device_lookup[data[0]]]
-            network = [voltage_lookup[data[2]], data[3], data[22], data[21], data[23], data[24], data[25], data[26], data[27],
-                       data[28], data[29], data[30], data[31], split_string(data[32]), split_string(data[33])]
+            network = [voltage_lookup[data[2]], data[3], data[22], data[21], data[23], data[24], data[25], data[26],
+                       data[27], data[28], data[29], data[30], data[31], split_string(data[32]), split_string(data[33])]
             new_fuse = fu.LineFuse(parameters, settings, network)
             all_devices.append(new_fuse)
         else:
