@@ -23,15 +23,19 @@ def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
     :return:
     """
 
+    # If any existing relay have inadequate reach settings, set their status to "Required"
+    assess_existing_relays(all_devices)
+
     fuse_setting_report = slf.line_fuse_study(all_devices)
     print("Running optimization routine")
     best_total_trip_ef, best_settings_ef, ef_triggers, failed_ef = best_relays(all_devices, f_type='EF')
     best_total_trip_oc, best_settings, oc_triggers, failed_oc = best_relays(all_devices, f_type='OC')
     print_results(best_total_trip_ef, ef_triggers, best_total_trip_oc, oc_triggers, failed_ef, failed_oc)
 
-    ef_setting_report = sr.ef_report(best_settings, ef_triggers)
-    oc_setting_report = sr.oc_report(best_settings, oc_triggers)
-    setting_report = {**ef_setting_report, **oc_setting_report, **fuse_setting_report}
+    ef_setting_report = sr.ef_report(best_settings)
+    oc_setting_report = sr.oc_report(best_settings)
+    trig_set_report = sr.triggers_report(ef_triggers, oc_triggers, failed_ef, failed_oc)
+    setting_report = {**ef_setting_report, **oc_setting_report, **fuse_setting_report, **trig_set_report}
     # Change upstream devices and downstream devices from objects to strings for output file
     for device in best_settings:
         relay_network_data = device.netdat
@@ -49,6 +53,41 @@ def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
     return best_settings, setting_report
 
 
+def assess_existing_relays(all_devices):
+    """
+    If any existing relay have inadequate reach settings, set their status to "Required"
+    :param all_devices:
+    :return:
+    """
+
+    relays = [device for device in all_devices if hasattr(device, device.cb_interrupt)]
+    existing_relays = [relay for relay in relays if relay.relset.status == "Existing"]
+
+    for relay in existing_relays:
+        ef_pu = relay.relset.oc_pu
+        oc_pu = relay.relset.ef_pu
+        min_pg_fl = relay.netdat.min_pg_fl
+        min_2p_fl = relay.netdat.min_2p_fl
+        ef_reach = min_pg_fl / ef_pu
+        oc_reach = min_2p_fl / oc_pu
+
+        if ef_reach < GradingParameters().pri_reach_factor or oc_reach < GradingParameters().pri_reach_factor:
+            relay.relset.status = "Required"
+            continue
+
+        # Check if downstream relays exist (don't need to back up ds fuses):
+        ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, device.cb_interrupt)]
+        if ds_relays:
+            # Create list of downstream device min fault levels
+            bu_min_pg_fls = [device.netdat.min_pg_fl for device in ds_relays]
+            bu_min_2p_fls = [device.netdat.min_2p_fl for device in ds_relays]
+            # PU < mininium back-up fault level / bu_reach_factor
+            ef_bu_reach = min(bu_min_pg_fls) / ef_pu
+            oc_bu_reach = min(bu_min_2p_fls) / oc_pu
+            if ef_bu_reach < GradingParameters().bu_reach_factor or oc_bu_reach < GradingParameters().bu_reach_factor:
+                relay.relset.status = "Required"
+
+
 def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, list, int]:
     """
 
@@ -64,16 +103,16 @@ def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, li
     best_relays = []
     # Triggers are parameters indicating whether a solution has failed to converge under specified constraints.
     # When reaching a threshold value, this triggers formulation of new solutions under less stringent constraints.
-    triggers = [0, 0, 0, 0, 0]
+    triggers = [0, 0, 0, 0, 0, 0, 0]
     failed_iter = 0
     for n in range(0, iterations):
         print(f"{f_type} settings iteration {n + 1} of {iterations}")
-        # percentage is a variable that behaves similar to temperature in simulated annealing. It progressively
+        # percentage is a variable that behaves similarly to temperature in simulated annealing. It progressively
         # restricts bounds on setting parameter generation to converge on the best settings.
         percentage = 1 - (n / iterations)
         # Generate new relay settings under constraints
         triggers = sc.check_settings(relays, triggers, percentage, f_type)
-        if triggers[4] == grading_check_iter:
+        if triggers[6] == grading_check_iter:
             # Iteration failed to generate permissible settings
             failed_iter += 1
             continue
@@ -82,8 +121,11 @@ def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, li
             best_total_trip = round(total_trip_time, 2)
             best_relays = copy.deepcopy(relays)
         relays = best_relays
-    # If slowest clearing time was changed, revert the change.
+    # If fuse grading was changed, revert the change.
     if triggers[3] == grading_check_iter or triggers[4] == grading_check_iter:
+        GradingParameters().fuse_grading += 0.15
+    # If slowest clearing time was changed, revert the change.
+    if triggers[5] == grading_check_iter or triggers[6] == grading_check_iter:
         GradingParameters().pri_slowest_clear -= 1
         GradingParameters().bu_slowest_clear -= 1
 

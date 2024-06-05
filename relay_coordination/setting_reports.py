@@ -1,15 +1,14 @@
 import trip_time as tt
-from device_data import eql_fuse_data as fd
+from relay_coord import iterations, grading_check_iter
 
 
-def ef_report(best_relays, ef_triggers):
+def ef_report(best_relays):
     """
 
     :param best_relays:
     :return:
     """
 
-    # TODO: Incorporate triggers in to setting report
     ef_setting_report = {
         "Criteria:": [
             "Downstream device earth fault minimum grading:",
@@ -71,7 +70,7 @@ def ef_report(best_relays, ef_triggers):
     return ef_setting_report
 
 
-def oc_report(best_relays, oc_triggers):
+def oc_report(best_relays):
     """
 
     :param best_relays:
@@ -164,6 +163,56 @@ def oc_report(best_relays, oc_triggers):
             ds_grading, max_fuse_grading, trip_inrush, primary_oc_reach, bu_reach_factor, l_f, r_f, slowest_operate
         ]
     return oc_setting_report
+
+
+def triggers_report(ef_triggers, oc_triggers, failed_ef, failed_oc):
+
+
+    ef_a, ef_b, ef_c, ef_d, ef_e, ef_f, ef_g = ef_triggers
+    ef_notes = []
+    if ef_a == grading_check_iter:
+        ef_report_a = "EF grading was altered from nominal margins to exact margins"
+        ef_notes.append(ef_report_a)
+    if ef_b == grading_check_iter:
+        ef_report_b = "Existing feeder relay EF settings were change to 'Required'"
+        ef_notes.append(ef_report_b)
+    if ef_d == grading_check_iter:
+        ef_report_d = "EF fuse grading margins were reduced by 0.15s"
+        ef_notes.append(ef_report_d)
+    if ef_e == grading_check_iter:
+        ef_report_e = "existing substation relay EF settings were change to 'Required'"
+        ef_notes.append(ef_report_e)
+    if ef_f == grading_check_iter:
+        ef_report_f = "Slowest permissible primary and backup clearing times were increased by 1s"
+        ef_notes.append(ef_report_f)
+    ef_report_g = f"There were {failed_ef} failed EF setting interations out of a total of {iterations}"
+    ef_notes.append(ef_report_g)
+
+    trigger_report_ef = {"EF Setting Notes": ef_notes}
+
+    oc_a, oc_b, oc_c, oc_d, oc_e, oc_f, oc_g = oc_triggers
+    oc_notes = []
+    if oc_a == grading_check_iter:
+        oc_report_a = "OC grading was altered from nominal margins to exact margins"
+        oc_notes.append(oc_report_a)
+    if ef_b == grading_check_iter:
+        oc_report_b = "Existing feeder relay OC settings were change to 'Required'"
+        oc_notes.append(oc_report_b)
+    if ef_d == grading_check_iter:
+        oc_report_d = "OC fuse grading margins were reduced by 0.15s"
+        oc_notes.append(oc_report_d)
+    if ef_e == grading_check_iter:
+        oc_report_e = "existing substation relay OC settings were change to 'Required'"
+        oc_notes.append(oc_report_e)
+    if ef_f == grading_check_iter:
+        oc_report_f = "Slowest permissible primary and backup clearing times were increased by 1s"
+        oc_notes.append(oc_report_f)
+    oc_report_g = f"There were {failed_oc} failed OC setting interations out of a total of {iterations}"
+    oc_notes.append(oc_report_g)
+
+    trigger_report_oc = {"OC Setting Notes": oc_notes}
+
+    return {**trigger_report_ef, **trigger_report_oc}
 
 
 def print_results(best_settings_ef, best_settings_oc, best_total_trip_oc, best_total_trip_ef):

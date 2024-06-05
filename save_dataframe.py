@@ -41,8 +41,10 @@ def save_dataframe(app, study_type, gen_info: list, all_devices: list,
         worksheet['A4'] = 'Script Run Date'
         worksheet['A5'] = date_string
         worksheet['A8'] = 'External Grid Data:'
+
         # Study Results sheet
         study_results.to_excel(writer, sheet_name='Study Results', index=False)
+
         # Detailed fault levels sheet
         for i, device in df_device_list:
             count = i * 5 - 4
@@ -79,6 +81,7 @@ def format_results(study_type, gen_info, all_devices, setting_report, detailed_f
     formatted_dev_pd = formatted_dev_pd.set_index('Site Name').transpose()
     setting_report_pd = pd.DataFrame.from_dict(setting_report)
     study_results = pd.concat([formatted_dev_pd, setting_report_pd])
+    study_results = study_results.fillna("")
 
     # Format 'Detailed fault levels' data
     pg_max_all, phase_max_all, pg_min_all, phase_min_all, section_loads, max_tr_pg_fls, max_tr_p_fls = detailed_fls

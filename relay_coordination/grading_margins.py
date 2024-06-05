@@ -73,7 +73,7 @@ def _grade_time(ds_device: object, us_device: object, f_type: str, eval_type: st
         if hasattr(ds_device, ds_device.cb_interrupt):
             trip_ds_device = tt.relay_trip_time(ds_device, x, f_type)
         else:
-            trip_ds_device = tt.fuse_melting_time(ds_device.name, x)
+            trip_ds_device = tt.fuse_melting_time(ds_device.relset.rating, x)
         trip_us_device = tt.relay_trip_time(us_device, x, f_type)
         grading_actual = trip_us_device - trip_ds_device
         # Evaluate downstream grading against device technology

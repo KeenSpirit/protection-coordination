@@ -27,8 +27,8 @@ def line_fuse_study(all_devices) -> dict[str | float:dict[str | float: str]]:
             "Fuse downstream TR PG % time (ds grading):",
             "Fuse min 2P clear time:",
             "Fuse min PG clear time:",
-            "Fuse upsream device 3P grading margin:",
-            "Fuse upsream device PG grading margin:",
+            "Fuse upstream device 3P grading margin:",
+            "Fuse upstream device PG grading margin:",
         ]
     }
 
@@ -101,6 +101,7 @@ def tr_inrush_capability(df, cand, fuse):
     """
     Transformer inrush capability
     Check to ensure that the fuse can withstand the expected transformer inrush curnent
+    Dictionary values for excel conditional formatting are created for future implementation
     :param df:
     :param fuse:
     :param fuse_check:
@@ -128,7 +129,7 @@ def tr_inrush_capability(df, cand, fuse):
     else:
         min_melt_12 = {min_melt_12_with: 'red'}
 
-    return score, [min_melt_25, min_melt_12]
+    return score, [min_melt_25_with, min_melt_12_with]
 
 
 def clp_capability(df, cand, fuse):
@@ -159,7 +160,7 @@ def clp_capability(df, cand, fuse):
     else:
         min_melt_3 = {min_melt_load3: 'red'}
 
-    return score, [min_melt_6, min_melt_3]
+    return score, [min_melt_load6, min_melt_load3]
 
 def load_capability(df, cand, fuse):
     """
@@ -182,7 +183,7 @@ def load_capability(df, cand, fuse):
     else:
         min_melt_300s = {min_melt_i_300s: 'red'}
 
-    return score, [min_melt_300s]
+    return score, [min_melt_i_300s]
 
 def ds_grade_capability(df, cand, fuse):
     """
@@ -227,7 +228,7 @@ def ds_grade_capability(df, cand, fuse):
     else:
         grade_pg = {ratio_pg: 'red'}
 
-    return score, [grade_3p, grade_2p, grade_pg]
+    return score, [ratio_3p, ratio_2P, ratio_pg]
 
 
 def min_fault_capability(df, cand, fuse):
@@ -252,7 +253,7 @@ def min_fault_capability(df, cand, fuse):
     else:
         fault_pg = {fuse_clear_pg: 'red'}
 
-    return score, [fault_2p, fault_pg]
+    return score, [fuse_clear_2p, fuse_clear_pg]
 
 
 def us_grade_capability(df, cand, fuse):
@@ -287,15 +288,15 @@ def us_grade_capability(df, cand, fuse):
     fuse_grading_3p = us_tt_3p - fuse_clear_3p
     if fuse_grading_3p <= allowed_grading:
         score += 1
-        grade_3p = {fuse_clear_pg: 'green'}
+        grade_3p = {fuse_grading_3p: 'green'}
     else:
-        grade_3p = {fuse_clear_pg: 'red'}
+        grade_3p = {fuse_grading_3p: 'red'}
     fuse_grading_pg = us_tt_pg - fuse_clear_pg
     if fuse_grading_pg <= allowed_grading:
         score += 1
-        grade_pg = {fuse_clear_pg: 'green'}
+        grade_pg = {fuse_grading_pg: 'green'}
     else:
-        grade_pg = {fuse_clear_pg: 'red'}
+        grade_pg = {fuse_grading_pg: 'red'}
 
-    return score, [grade_3p, grade_pg]
+    return score, [fuse_grading_3p, fuse_grading_pg]
 

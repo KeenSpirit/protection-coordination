@@ -8,9 +8,6 @@ oc_tms_bounded(relay)
 
 from input_files.input_file import GradingParameters
 from relay_coordination import trip_time as tt
-from device_data import eql_fuse_data as fd
-
-#TODO: Ensure this code is compatible with downstream line fuses
 
 
 def ef_tms_exact(relay):
@@ -42,23 +39,30 @@ def ef_tms_exact(relay):
         # 2) maximum downstream hiset
         op_time_fault = {}
         for device in relay.netdat.downstream_devices:
-            if device.relset.ef_hiset != "OFF":
-                hs_op_time = tt.relay_trip_time(device, device.relset.ef_hiset-1, f_type)
+            if hasattr(device, device.cb_interrupt):
+                # DS device is a relay
+                if device.relset.ef_hiset != "OFF":
+                    hs_op_time = tt.relay_trip_time(device, device.relset.ef_hiset-1, f_type)
+                    if device.manufacturer.technology == "Electro-mechanical":
+                        total_hs_time = hs_op_time + GradingParameters().mechanical_grading
+                    elif device.manufacturer.technology == "Static":
+                        total_hs_time = hs_op_time + GradingParameters().static_grading
+                    else:
+                        total_hs_time = hs_op_time + GradingParameters().digital_grading
+                    op_time_fault[total_hs_time] = device.relset.oc_hiset-1
+                fl_op_time = tt.relay_trip_time(device, device.netdat.max_pg_fl, f_type)
                 if device.manufacturer.technology == "Electro-mechanical":
-                    total_hs_time = hs_op_time + GradingParameters().mechanical_grading
+                    total_fl_time = fl_op_time + GradingParameters().mechanical_grading
                 elif device.manufacturer.technology == "Static":
-                    total_hs_time = hs_op_time + GradingParameters().static_grading
+                    total_fl_time = fl_op_time + GradingParameters().static_grading
                 else:
-                    total_hs_time = hs_op_time + GradingParameters().digital_grading
-                op_time_fault[total_hs_time] = device.relset.oc_hiset-1
-            fl_op_time = tt.relay_trip_time(device, device.netdat.max_pg_fl, f_type)
-            if device.manufacturer.technology == "Electro-mechanical":
-                total_fl_time = fl_op_time + GradingParameters().mechanical_grading
-            elif device.manufacturer.technology == "Static":
-                total_fl_time = fl_op_time + GradingParameters().static_grading
+                    total_fl_time = fl_op_time + GradingParameters().digital_grading
+                op_time_fault[total_fl_time] = device.netdat.max_pg_fl
             else:
-                total_fl_time = fl_op_time + GradingParameters().digital_grading
-            op_time_fault[total_fl_time] = device.netdat.max_pg_fl
+                # DS device is a fuse
+                total_fl_time = (tt.fuse_melting_time(device.relset.rating, device.netdat.max_pg_fl)
+                                 + GradingParameters().fuse_grading)
+                op_time_fault[total_fl_time] = device.netdat.max_pg_fl
         op_times = list(op_time_fault.keys())
         fault_levels = list(op_time_fault.values())
         # The following is a list [associated fault level, slowest operating time]:
@@ -84,20 +88,25 @@ def ef_tms_bounded(relay):
     # Set minimum TMS so that curve grades with fuse curve by 100ms.
     relay.relset.ef_tms = relay.manufacturer.tms[0]
     t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_pg, f_type)
-    ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_pg)
-    while t_relay < ds_melting_time + GradingParameters().fuse_grading:
+    tr_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_pg)
+    if relay.netdat.downstream_devices:
+        ds_fuses = [device for device in relay.netdat.downstream_devices if not hasattr(device, device.cb_interrupt)]
+        mdo_melt_time = max(tt.fuse_melting_time(device.relset.rating, device.netdat.max_pg_fl) for device in ds_fuses)
+    else:
+        mdo_melt_time = 0
+    ds_melt_time = max(tr_melting_time, mdo_melt_time)
+    while t_relay < ds_melt_time + GradingParameters().fuse_grading:
         relay.relset.ef_tms += relay.manufacturer.tms[2]
         t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_pg, f_type)
     min_tms = relay.relset.ef_tms
 
-    # First check if the list of downstream devices is empty
-    if not relay.netdat.downstream_devices:
-        # Keep the relay TMS set to min grade above fuse
-        max_ds_ef_tms = min_tms
-    # If not empty:
-    else:
-        ds_ef_tms = max([device.relset.ef_tms for device in relay.netdat.downstream_devices])
+    # First check if the list of downstream relays is empty
+    ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, device.cb_interrupt)]
+    if ds_relays:
+        ds_ef_tms = max([device.relset.ef_tms for device in ds_relays])
         max_ds_ef_tms = max(min_tms, relay.tms_converter_min(ds_ef_tms))
+    else:
+        max_ds_ef_tms = min_tms
 
     # The upper bound of the TMS is the minimum of the following:
     # 1) All upstream existing relay TMSs
@@ -161,23 +170,30 @@ def oc_tms_exact(relay):
         # 2) maximum downstream hiset
         op_time_fault = {}
         for device in relay.netdat.downstream_devices:
-            if device.relset.oc_hiset != "OFF":
-                hiset_op_time = tt.relay_trip_time(device, device.relset.oc_hiset-1, f_type)
+            if hasattr(device, device.cb_interrupt):
+                # DS device is a relay
+                if device.relset.oc_hiset != "OFF":
+                    hiset_op_time = tt.relay_trip_time(device, device.relset.oc_hiset-1, f_type)
+                    if device.manufacturer.technology == "Electro-mechanical":
+                        total_hs_time = hiset_op_time + GradingParameters().mechanical_grading
+                    elif device.manufacturer.technology == "Static":
+                        total_hs_time = hiset_op_time + GradingParameters().static_grading
+                    else:
+                        total_hs_time = hiset_op_time + GradingParameters().digital_grading
+                    op_time_fault[total_hs_time] = device.relset.oc_hiset-1
+                maxfl_op_time = tt.relay_trip_time(device, device.netdat.max_3p_fl, f_type)
                 if device.manufacturer.technology == "Electro-mechanical":
-                    total_hs_time = hiset_op_time + GradingParameters().mechanical_grading
+                    total_fl_time = maxfl_op_time + GradingParameters().mechanical_grading
                 elif device.manufacturer.technology == "Static":
-                    total_hs_time = hiset_op_time + GradingParameters().static_grading
+                    total_fl_time = maxfl_op_time + GradingParameters().static_grading
                 else:
-                    total_hs_time = hiset_op_time + GradingParameters().digital_grading
-                op_time_fault[total_hs_time] = device.relset.oc_hiset-1
-            maxfl_op_time = tt.relay_trip_time(device, device.netdat.max_3p_fl, f_type)
-            if device.manufacturer.technology == "Electro-mechanical":
-                total_fl_time = maxfl_op_time + GradingParameters().mechanical_grading
-            elif device.manufacturer.technology == "Static":
-                total_fl_time = maxfl_op_time + GradingParameters().static_grading
+                    total_fl_time = maxfl_op_time + GradingParameters().digital_grading
+                op_time_fault[total_fl_time] = device.netdat.max_3p_fl
             else:
-                total_fl_time = maxfl_op_time + GradingParameters().digital_grading
-            op_time_fault[total_fl_time] = device.netdat.max_3p_fl
+                # DS device is a fuse
+                total_fl_time = (tt.fuse_melting_time(device.relset.rating, device.netdat.max_3p_fl)
+                                 + GradingParameters().fuse_grading)
+                op_time_fault[total_fl_time] = device.netdat.max_3p_fl
         op_times = list(op_time_fault.keys())                    # List of operating times
         fault_levels = list(op_time_fault.values())              # List of fault levels
         # The following is a list [associated fault level, slowest operating time]:
@@ -204,8 +220,14 @@ def oc_tms_bounded(relay):
     # Set minimum TMS so that curve grades with fuse curve by 100ms.
     relay.relset.oc_tms = relay.manufacturer.tms[0]
     t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_3p, f_type)
-    ds_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_3p)
-    while t_relay < ds_melting_time + GradingParameters().fuse_grading:
+    tr_melting_time = tt.fuse_melting_time(relay.netdat.max_tr_fuse, relay.netdat.tr_max_3p)
+    if relay.netdat.downstream_devices:
+        ds_fuses = [device for device in relay.netdat.downstream_devices if not hasattr(device, device.cb_interrupt)]
+        mdo_melt_time = max(tt.fuse_melting_time(device.relset.rating, device.netdat.max_3p_fl) for device in ds_fuses)
+    else:
+        mdo_melt_time = 0
+    ds_melt_time = max(tr_melting_time, mdo_melt_time)
+    while t_relay < ds_melt_time + GradingParameters().fuse_grading:
         relay.relset.oc_tms += relay.manufacturer.tms[2]
         t_relay = tt.relay_trip_time(relay, relay.netdat.tr_max_3p, f_type)
 
@@ -220,16 +242,13 @@ def oc_tms_bounded(relay):
 
     min_tms = relay.relset.oc_tms
 
-    # First check if the list of downstream devices is empty
-    if not relay.netdat.downstream_devices:
-        # Keep the relay TMS set to min grade above fuse
-        lower_bound_tms = min_tms
-    # If not empty:
+    # First check if the list of downstream relays is empty
+    ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, device.cb_interrupt)]
+    if ds_relays:
+        ds_oc_tms = max([device.relset.oc_tms for device in ds_relays])
+        lower_bound_tms = max(min_tms, relay.tms_converter_min(ds_oc_tms))
     else:
-        # TMS lower bound of max((TMS to grade above ds fuse), max(downstream relay TMSs)
-        ds_tms = max([device.relset.oc_tms for device in relay.netdat.downstream_devices])
-        # Take ceiling to convert TMS to value appropriate to the relay
-        lower_bound_tms = max(min_tms, relay.tms_converter_min(ds_tms))
+        lower_bound_tms = min_tms
 
     # The upper bound of the TMS is the minimum of the following:
     # 1) All upstream existing relay TMSs

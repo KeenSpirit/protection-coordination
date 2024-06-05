@@ -7,6 +7,7 @@ from device_data import eql_relay_data as re
 from device_data import eql_fuse_data as fu
 from device_data.eql_fuse_data import LineFuse, fuse_list
 from device_data.eql_relay_data import ProtectionRelay
+import data_validation as dv
 
 status_lookup = {1: False, 2: 'Existing', 3: 'Required', 4: 'New'}
 
@@ -102,6 +103,9 @@ def get_input() -> tuple[list[Any], list[ProtectionRelay | LineFuse], dict]:
     grad_param = grad_param.fillna("")
     # Transform dataframe into dictionary
     grad_param = grad_param.to_dict('list')
+
+    # Validate all input data
+    dv.validate_data(instructions, inputs, grad_param)
 
     def split_string(object):
         if type(object) == str:

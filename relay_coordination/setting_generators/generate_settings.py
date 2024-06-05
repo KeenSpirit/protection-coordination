@@ -8,7 +8,10 @@ def generate_ef_settings(relays, percentage):
 
     grading_check = True
     for relay in relays:
-        generate_pickup(relay, percentage, f_type='EF')
+        grading_check = generate_pickup(relay, percentage, f_type='EF')
+        if not grading_check:
+            # The relay won't grade. Need to flag for constraint relaxation
+            break
 
         # HIGHSET & CURVE
         if round(uniform(0, 1)) < percentage:
@@ -72,7 +75,10 @@ def generate_oc_settings(relays, percentage):
 
     grading_check = True
     for relay in relays:
-        generate_pickup(relay, percentage, f_type='OC')
+        grading_check = generate_pickup(relay, percentage, f_type='OC')
+        if not grading_check:
+            # The relay won't grade. Need to flag for constraint relaxation
+            break
 
         if round(uniform(0, 1)) < percentage:
             # hiset setting for all iterations will be a random choice from scenarios
@@ -141,38 +147,45 @@ def generate_pickup(relay, percentage, f_type):
     :param f_type:
     :return:
     """
+    grading_check = True
+    bounds = pg.pick_up(relay, f_type)
+    lower_bound = bounds[0]
+    upper_bound = bounds[1]
+    pu_range = bounds[1] - bounds[0]
+
+    if upper_bound < lower_bound:
+        grading_check = False
+        return grading_check
 
     if f_type == 'EF':
         current_pickup = relay.relset.ef_pu
-        bounds = pg.ef_pick_up(relay)
     else:
         current_pickup = relay.relset.oc_pu
-        bounds = pg.oc_pick_up(relay)
 
-    pu_range = bounds[1] - bounds[0]
-
-    if bounds[0] < current_pickup < bounds[1]:
-        dist_min = abs(current_pickup - bounds[0])
-        dist_max = abs(current_pickup - bounds[1])
+    if lower_bound < current_pickup < upper_bound:
+        dist_min = abs(current_pickup - lower_bound)
+        dist_max = abs(current_pickup - upper_bound)
         if dist_max > dist_min:
             furthest_dist = dist_max
         else:
             furthest_dist = dist_min
         new_distance = percentage * furthest_dist
-        new_min_bound = max((current_pickup - new_distance), bounds[0])
-        new_max_bound = min((current_pickup + new_distance), bounds[1])
+        new_min_bound = max((current_pickup - new_distance), lower_bound)
+        new_max_bound = min((current_pickup + new_distance), upper_bound)
         new_pickup = relay.pu_converter(uniform(new_min_bound, new_max_bound), f_type)
-    elif current_pickup < bounds[0]:
-        new_max_bound = bounds[0] + (percentage * pu_range)
-        new_pickup = relay.pu_converter(uniform(bounds[0], new_max_bound), f_type)
+    elif current_pickup < lower_bound:
+        new_max_bound = lower_bound + (percentage * pu_range)
+        new_pickup = relay.pu_converter(uniform(lower_bound, new_max_bound), f_type)
         pass
     else:
-        new_min_bound = bounds[1] - (percentage * pu_range)
-        new_pickup = relay.pu_converter(uniform(new_min_bound, bounds[1]), f_type)
+        new_min_bound = upper_bound - (percentage * pu_range)
+        new_pickup = relay.pu_converter(uniform(new_min_bound, upper_bound), f_type)
 
     if f_type == 'EF':
         relay.relset.ef_pu = new_pickup
     else:
         relay.relset.oc_pu = new_pickup
+
+    return grading_check
 
 

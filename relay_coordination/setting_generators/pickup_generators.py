@@ -1,174 +1,34 @@
 """
 Pick-up generator functions:
 oc_pick_up(relay)
-ef_pick_up(relay)
 """
 
 from input_files.input_file import GradingParameters
 
-#TODO: Ensure this code is compatible with downstream line fuses
 
-def ef_pick_up(relay):
-    """Calculates the required protection relay earth fault pick-up.
+def pick_up(relay, f_type):
+    """
+    Calculates the required protection relay element pick-up.
     The function uses an RNG to set the relay pickup within a specified range dictated by upper and lower bounds. If the
     bounds overlap they are dynamically adjusted according to a priority list of constraints.
-    For improvement: These should be subject to an annealing schedule"""
+    :param relay:
+    :param f_type:
+    :return:
+    """
 
     ####################################################################################################################
-    # Formulate setting parameters based on io_template_files
+    # Formulate constraints
     ####################################################################################################################
 
-    load_factor = relay.netdat.load * 0.1                                       # >= 10% of max load
-    # PU < mininium fault level / reach_factor
-    ef_reach = relay.netdat.min_pg_fl / GradingParameters().pri_reach_factor
+    lower_bounds = pu_lower_bounds(relay, f_type)
+    upper_bounds = pu_upper_bounds(relay, f_type)
 
-    # Check if upstream existing devices exist:
-    existing_upstream_ef = [device for device in relay.netdat.upstream_devices
-                            if device.relset.status == "Existing"]
-    if not existing_upstream_ef:
-        upstream_ef = 9999
-    else:
-        # Min pick-up of these existing upstream devices.
-        upstream_ef = min([device.relset.ef_pu for device in existing_upstream_ef])
+    hard_lower_bound = lower_bounds['load_factor']
+    hard_upper_bound = upper_bounds['oc_reach']
 
-    # Check if downstream devices exist:
-    if not relay.netdat.downstream_devices:
-        ef_pu_factor = 0
-        ef_bu_reach = 9999
-    else:
-        # Create list of downstream device pickups.
-        ef_pus = [device.relset.ef_pu for device in relay.netdat.downstream_devices]
-        # Min pick-up of these devices.
-        ef_pu_factor = max(ef_pus) * 1.1                                        # 110% of downstream relay pick-up
-        # Create list of downstream device min fault levels
-        bu_pg_min = [device.netdat.min_pg_fl for device in relay.netdat.downstream_devices]
-        # PU < mininium back-up fault level / bu_reach_factor
-        ef_bu_reach = min(bu_pg_min) / GradingParameters().bu_reach_factor
-
-    ####################################################################################################################
-    # List constraints from lowest to highest priority
-    ####################################################################################################################
-
-    hard_lower_bound = load_factor
-    hard_upper_bound = ef_reach
     if hard_upper_bound < hard_lower_bound:
-        # you need to use negative phase sequence protection
-        raise Exception(f"load factor exceeds EF reach factor - {relay.name} EF element cannot grade properly")
-
-    lower_bounds = {
-        "load_factor": load_factor, "ef_pu_factor": ef_pu_factor, "min_value": 10
-    }
-    upper_bounds = {
-        "ef_reach": ef_reach, "ef_bu_reach": ef_bu_reach, "upstream_ef": upstream_ef, "max_value": 2000
-    }
-
-    priority_dic = {
-        "max_value": 7,
-        "min_value": 6,
-        "upstream_ef": 5,
-        "ef_pu_factor": 4,
-        "ef_bu_reach": 3,
-        "load_factor": 2,
-        "ef_reach": 1
-    }
-
-    ################################################################################################################
-    # Set RNG bounds and EF pickup according to constraint priority
-    ################################################################################################################
-
-    while max(lower_bounds.values()) > min(upper_bounds.values()):
-        max_lower_bounds = [key for key in lower_bounds if lower_bounds[key] == max(lower_bounds.values())]
-        min_upper_bounds = [key for key in upper_bounds if upper_bounds[key] == min(upper_bounds.values())]
-        #find the key with the highest priority.
-        highest_priority = 9
-        for key in max_lower_bounds:
-            priority = priority_dic[key]
-            if priority < highest_priority:
-                highest_priority = priority
-        highest_priority_lower = [i for i in priority_dic if priority_dic[i] == highest_priority][0]
-
-        highest_priority = 9
-        for key in min_upper_bounds:
-            priority = priority_dic[key]
-            if priority < highest_priority:
-                highest_priority = priority
-        highest_priority_upper = [i for i in priority_dic if priority_dic[i] == highest_priority][0]
-
-        # compare with key with the highest priority from other bound.
-        # Whichever of the two priotiries is lower, jettison all related keys from that dictionary.
-        if priority_dic[highest_priority_lower] > priority_dic[highest_priority_upper] and len(lower_bounds) > 1:
-            del lower_bounds[highest_priority_lower]
-        elif len(upper_bounds) > 1:
-            del upper_bounds[highest_priority_upper]
-        else:
-            break
-
-    return [max(lower_bounds.values()), min(upper_bounds.values())]
-
-
-def oc_pick_up(relay):
-    """Calculates the required protection relay overcurrent pick-up.
-    The function uses an RNG to set the relay pickup within a specified range dictated by upper and lower bounds. If the
-    bounds overlap they are dynamically adjusted according to a priority list of constraints.
-    For improvement: These should be subject to an annealing schedule using the best_settings list"""
-
-    ####################################################################################################################
-    # Formulate setting parameters based on io_template_files
-    ####################################################################################################################
-
-    load_factor = relay.netdat.load * 1.1                               # 110% of forecast load current
-
-    if not relay.netdat.rating:
-        rating_factor = 0                                               # This isn't a feeder relay
-    else:
-        rating_factor = relay.netdat.rating * 1.11                      # 111% of feeder conductor 2HR rating.
-    # PU < mininium fault level / reach_factor
-    oc_reach = relay.netdat.min_2p_fl / GradingParameters().pri_reach_factor
-
-    # Check if upstream existing devices exist:
-    existing_upstream_oc = [device for device in relay.netdat.upstream_devices
-                            if device.relset.status == "Existing"]
-    if not existing_upstream_oc:
-        upstream_oc = 9999
-    else:
-        # Min pick-up of these existing upstream devices.
-        upstream_oc = min([device.relset.oc_pu for device in existing_upstream_oc])
-
-    # Check if downstream devices exist:
-    if not relay.netdat.downstream_devices:
-        oc_pu_factor = 0
-        oc_bu_reach = 9999
-    else:
-        # Create list of downstream device pickups.
-        oc_pus = [device.relset.oc_pu for device in relay.netdat.downstream_devices]
-        # Max pick-up of these devices.
-        oc_pu_factor = max(oc_pus) * 1.1    # 110% of downstream relay pick-up
-        # Create list of downstream device min fault levels
-        bu_pp_min = [device.netdat.min_2p_fl for device in relay.netdat.downstream_devices]
-        # PU < mininium back-up fault level / bu_reach_factor
-        oc_bu_reach = min(bu_pp_min) / GradingParameters().bu_reach_factor
-
-    if relay.relset.ef_pu:
-        ef_pu = relay.relset.ef_pu * 1.1    # 110% of earth fault pick-up
-    else:
-        ef_pu = 10
-
-    ####################################################################################################################
-    # List constraints
-    ####################################################################################################################
-
-    hard_lower_bound = load_factor
-    hard_upper_bound = oc_reach
-    if hard_upper_bound < hard_lower_bound:
-        # you need to use negative phase sequence protection
-        raise Exception(f"load factor exceeds OC reach factor - {relay.name} OC element cannot grade properly")
-
-    lower_bounds = {
-        "load_factor": load_factor, "rating_factor": rating_factor, "oc_pu_factor": oc_pu_factor, "ef_pu": ef_pu
-    }
-    upper_bounds = {
-        "oc_reach": oc_reach, "oc_bu_reach": oc_bu_reach, "upstream_oc": upstream_oc, "max_value": 3000
-    }
+        # Pick-up generation failed
+        return [hard_lower_bound, hard_upper_bound]
 
     ################################################################################################################
     # Set RNG bounds and EF pickup according to constraint priority
@@ -177,34 +37,38 @@ def oc_pick_up(relay):
     priority_dic = {
         "max_value": 8,
         "ef_pu": 7,
-        "upstream_oc": 6,
-        "oc_pu_factor": 5,
+        "upstream_pu": 6,
+        "pu_factor": 5,
         "rating_factor": 4,
-        "oc_bu_reach": 3,
-        "load_factor": 2,
-        "oc_reach": 1
+        "bu_reach": 3,
+        "pri_reach": 1
     }
+
+    if f_type == 'EF':
+        priority_dic["load_factor"] = 9
+    else:
+        priority_dic["load_factor"] = 2
 
     while max(lower_bounds.values()) > min(upper_bounds.values()):
         max_lower_bounds = [key for key in lower_bounds if lower_bounds[key] == max(lower_bounds.values())]
         min_upper_bounds = [key for key in upper_bounds if upper_bounds[key] == min(upper_bounds.values())]
         #find the key with the highest priority.
-        highest_priority = 9
+        highest_priority = 10
         for key in max_lower_bounds:
             priority = priority_dic[key]
             if priority < highest_priority:
                 highest_priority = priority
         highest_priority_lower = [i for i in priority_dic if priority_dic[i] == highest_priority][0]
 
-        highest_priority = 9
+        highest_priority = 10
         for key in min_upper_bounds:
             priority = priority_dic[key]
             if priority < highest_priority:
                 highest_priority = priority
         highest_priority_upper = [i for i in priority_dic if priority_dic[i] == highest_priority][0]
 
-        # compare with key with highest priority from other bound.
-        # Whichever of the two priotiries is lower, jettison all related keys from that dictionary.
+        # Compare with key with the highest priority from other bound.
+        # Whichever of the two priorities is lower, jettison all related keys from that dictionary.
         if priority_dic[highest_priority_lower] > priority_dic[highest_priority_upper] and len(lower_bounds) != 1:
             del lower_bounds[highest_priority_lower]
         elif len(upper_bounds) != 1:
@@ -215,4 +79,94 @@ def oc_pick_up(relay):
     return [max(lower_bounds.values()), min(upper_bounds.values())]
 
 
+def pu_lower_bounds(relay, f_type):
+    """
+
+    :param relay:
+    :param f_type:
+    :return:
+    """
+
+    if f_type == 'OC':
+        load_factor = relay.netdat.load * 1.1                   # 110% of forecast load current
+    else:
+        load_factor = 0
+
+    if not relay.netdat.rating:
+        rating_factor = 0                                   # This isn't a feeder relay
+    else:
+        rating_factor = relay.netdat.rating * 1.11          # 111% of feeder conductor 2HR rating.
+
+    # Check if downstream relays exist (don't need to back up ds fuses):
+    ds_relays = [device for device in relay.netdat.downstream_devices
+                 if hasattr(device, device.cb_interrupt)]
+    if not ds_relays:
+        ds_pu_factor = 0
+    else:
+        # Create list of downstream device pickups.
+        if f_type == 'EF':
+            pick_ups = [device.relset.ef_pu for device in ds_relays]
+        else:
+            pick_ups = [device.relset.oc_pu for device in ds_relays]
+        # Max pick-up of these devices.
+        ds_pu_factor = max(pick_ups) * 1.1                     # 110% of downstream relay pick-up
+
+    if f_type == 'OC' and relay.relset.ef_pu:
+        ef_pu = relay.relset.ef_pu * 1.1                    # 110% of earth fault pick-up
+    else:
+        ef_pu = 10
+
+    lower_bounds = {
+        "load_factor": load_factor, "rating_factor": rating_factor, "pu_factor": ds_pu_factor, "ef_pu": ef_pu
+    }
+
+    return lower_bounds
+
+
+def pu_upper_bounds(relay, f_type):
+    """
+
+    :param relay:
+    :param f_type:
+    :return:
+    """
+
+    # PU < mininium fault level / reach_factor
+    if f_type == 'EF':
+        min_fl = relay.netdat.min_2p_fl
+    else:
+        min_fl = relay.netdat.min_pg_fl
+    pri_reach = min_fl / GradingParameters().pri_reach_factor
+
+    # Check if upstream existing devices exist:
+    exist_upstream_device = [device for device in relay.netdat.upstream_devices
+                            if device.relset.status == "Existing"]
+    if not exist_upstream_device:
+        upstream_pu = 9999
+    else:
+        # Min pick-up of these existing upstream devices.
+        if f_type == 'EF':
+            upstream_pu = min([device.relset.ef_pu for device in exist_upstream_device])
+        else:
+            upstream_pu = min([device.relset.oc_pu for device in exist_upstream_device])
+
+    # Check if downstream relays exist (don't need to back up ds fuses):
+    ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, device.cb_interrupt)]
+    if not ds_relays:
+        bu_reach = 9999
+    else:
+        # Min fl of these devices.
+        # Create list of downstream device min fault levels
+        if f_type == 'EF':
+            bu_min_fl = [device.netdat.min_pg_fl for device in ds_relays]
+        else:
+            bu_min_fl = [device.netdat.min_2p_fl for device in ds_relays]
+        # PU < mininium back-up fault level / bu_reach_factor
+        bu_reach = min(bu_min_fl) / GradingParameters().bu_reach_factor
+
+    upper_bounds = {
+        "pri_reach": pri_reach, "bu_reach": bu_reach, "upstream_pu": upstream_pu, "max_value": 3000
+    }
+
+    return upper_bounds
 
