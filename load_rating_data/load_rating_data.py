@@ -1,48 +1,100 @@
-"""
+""""
 Scrape feeder load and rating data from corporate Netplan intranet site
 """
+
+from pathlib import Path
 import time
+import pandas as pd
+from typing import Union, Any
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from input_files.input_file import instructions, grad_param
 
 
-def query_netplan() -> tuple[str|None, float|None]:
+def get_inputs() -> list:
+
+    filename = 'PowerFactory Feeders.xlsx'
+
+    user = Path.home().name
+    clientpath = Path('c:/LocalData') / user / Path('RelayCoordinationStudies')
+
+    feeders_pd = pd.read_excel(
+        f'{clientpath}/{filename}')
+    all_feeders_dict = feeders_pd.to_dict()
+    all_feeders_list = [feeder for feeder in all_feeders_dict.values()][0]
+    all_feeders = [str(feeder) for feeder in all_feeders_list.values()]
+
+    return all_feeders
+
+
+def query_all_feeders(all_feeders):
+
+    rating_sd = []
+    rating_sn = []
+    max_load = []
+    driver = chrome_driver()
+    for feeder in all_feeders:
+        print(f'Analysing feeder {feeder}')
+        if feeder != all_feeders[0]:
+            rating_sd_value, rating_sn_value, max_value = query_netplan(driver, feeder)
+        else:
+            rating_sd_value, rating_sn_value, max_value = query_netplan(driver, feeder, first_query=True)
+        rating_sd.append(rating_sd_value)
+        rating_sn.append(rating_sn_value)
+        max_load.append(max_value)
+
+    netplan_dict = {
+        'Feeder': all_feeders,
+        'Rating SD': rating_sd,
+        'Rating SN': rating_sn,
+        'Maximum load': max_load
+    }
+    driver.quit()
+
+    return netplan_dict
+
+
+def query_netplan(driver, feeder_name, first_query=False) -> tuple[Union[str,None], Union[float,None], Union[float,None]]:
     """
 
-    :param netplan_inputs:
+    :param driver:
+    :param feeder_name:
+    :param first_query:
     :return:
     """
 
-    # Input parameters
-    feeder_name = instructions[0]
-    forecast_years = grad_param['Load forecast years']
-    thermal_rating = grad_param['Feeder rating period']
-    poe = grad_param['Load forecast years POE']
-    if thermal_rating == "SD":
-        col = 8
-    else:
-        col = 9     # thermal_rating == "SN"
+    def failed(driver):
+        # Go back to Ratings tab in preparation for next iteration
+        rating_button = driver.find_element(By.ID, 'MN006')
+        rating_button.click()
+        time.sleep(1)
+        rating_sd_value = ''
+        rating_sn_value = ''
+        max_value = ''
+        return rating_sd_value, rating_sn_value, max_value
 
+    forecast_years = 5
+    poe = 10
 
     current_date, future_date = get_times(forecast_years)
 
-    driver = chrome_driver()
-    if not driver:
-        return None, None
-
     try:
-        driver.get("http://sbnswas116.services.local:82/Netplan/(S(hahm3g14nkffltlrf13j5c2p))/Ratings/Rating.aspx")
+        if first_query:
+            driver.get("http://sbnswas116.services.local:82/Netplan/(S(x3bat2h3b45o2cqe0ho4qrpb))/Ratings/Rating.aspx")
         search_input = driver.find_element(By.CSS_SELECTOR, "div.dataTables_filter input[type='search']")
+        search_input.clear()
         search_input.send_keys(feeder_name)
         search_input.send_keys(Keys.RETURN)
         time.sleep(1)
-        loadflow_rating_cell = driver.find_element(By.XPATH, "//td[text()='LOADFLOW RATING']")
-        loadflow_rating_cell.click()
+        try:
+            loadflow_rating_cell = driver.find_element(By.XPATH, "//td[text()='LOADFLOW RATING']")
+            loadflow_rating_cell.click()
+        except:
+            project_rating_cell = driver.find_element(By.XPATH, "//td[text()='PROJECT RATING']")
+            project_rating_cell.click()
         forecast_button = driver.find_element(By.ID, "MN002")
         forecast_button.click()
         time.sleep(1)
@@ -55,6 +107,7 @@ def query_netplan() -> tuple[str|None, float|None]:
 
         # Initialize variable to store the rating SD value
         rating_sd_value = None
+        rating_sn_value = None
 
         for row in rows:
             # Get the cells in the row
@@ -63,27 +116,30 @@ def query_netplan() -> tuple[str|None, float|None]:
             # Check if the row has the "THERMAL RATING" in the "Event" column (2nd column)
             if len(cells) > 1 and cells[1].text == "THERMAL RATING":
                 # Extract the value from the specified rating column
-                rating_sd_value = cells[col].text
+                rating_sd_value = cells[8].text
+                rating_sn_value = cells[9].text
                 break
 
         # Set POE
         dropdown_element = driver.find_element(By.ID, "ctl00_Content_Body_filterPOE")
         select = Select(dropdown_element)
         select.select_by_visible_text(f"{poe}% POE")
+        time.sleep(1)
 
         # Set Start and finish dates
-        button = driver.find_element(By.ID, "UserFiltersControl")
-        button.click()
-        time.sleep(1)
-        start_date = driver.find_element(By.NAME, 'ctl00$FLT008')
-        start_date.clear()
-        start_date.send_keys(current_date)
-        end_date = driver.find_element(By.NAME, 'ctl00$FLT009')
-        end_date.clear()
-        end_date.send_keys(future_date)
-        button = driver.find_element(By.ID, "ctl00_btnFilterApply")
-        button.click()
-        time.sleep(1)
+        if first_query:
+            button = driver.find_element(By.ID, "UserFiltersControl")
+            button.click()
+            time.sleep(1)
+            start_date = driver.find_element(By.NAME, 'ctl00$FLT008')
+            start_date.clear()
+            start_date.send_keys(current_date)
+            end_date = driver.find_element(By.NAME, 'ctl00$FLT009')
+            end_date.clear()
+            end_date.send_keys(future_date)
+            button = driver.find_element(By.ID, "ctl00_btnFilterApply")
+            button.click()
+            time.sleep(1)
 
         # Obtain forecast data
         table = driver.find_element(By.ID, 'ForecastDataTable')
@@ -101,8 +157,12 @@ def query_netplan() -> tuple[str|None, float|None]:
 
         # Loop through each row to find the maximum value across the specified columns
         for row in rows:
+
             # Find all cells in the row
             cells = row.find_elements(By.TAG_NAME, 'td')
+            if cells[0].text == 'No data available in table':
+                rating_sd_value, rating_sn_value, max_value = failed(driver)
+                return rating_sd_value, rating_sn_value, max_value
 
             # Extract and compare values for 'Forecast SD'
             forecast_sd_text = cells[forecast_sd_index].text
@@ -132,13 +192,16 @@ def query_netplan() -> tuple[str|None, float|None]:
                 if forecast_wn_value > max_value:
                     max_value = forecast_wn_value
 
+        # Go back to Ratings tab in preparation for next iteration
+        rating_button = driver.find_element(By.ID, 'MN006')
+        rating_button.click()
+        time.sleep(1)
+
     except:
-        rating_sd_value = None
-        max_value = None
+        rating_sd_value, rating_sn_value, max_value = failed(driver)
+        return rating_sd_value, rating_sn_value, max_value
 
-    driver.quit()
-
-    return rating_sd_value, max_value
+    return rating_sd_value, rating_sn_value, max_value
 
 
 def get_times(forecast_years) -> tuple[str, str]:
@@ -169,36 +232,56 @@ def get_times(forecast_years) -> tuple[str, str]:
     return current_date, future_date
 
 
-def chrome_driver() -> object:
+def chrome_driver():
     """
 
     :return:
     """
 
+    from pathlib import Path
+    import os
+
     # Initialize the Chrome options
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_version = get_chrome_version()
-    if chrome_version == '125.0.6422.113':
-        chrome_driver_path = \
-         'Y:/PROTECTION/STAFF/Dan Park/PowerFactory/Dan script development/protection-coordination/templates_data/chromedriver-win64 1.25/chromedriver.exe'
-        service = Service(chrome_driver_path)
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-    else:
-        driver = None
+    # chrome_options.add_argument("--headless")
+    # chrome_version = dv.get_chrome_version()
+
+    clientpath = 'Y:/PROTECTION/STAFF/Dan Park/PowerFactory/Dan script development/protection-coordination/templates_data/chromedriver-win64 1.25/chromedriver.exe'
+
+    service = Service(clientpath)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    if not driver:
+        return None
 
     return driver
 
 
-def get_chrome_version():
+def save_file(dictionary):
 
-    import winreg as reg
+    import os
 
-    try:
-        reg_path = r"SOFTWARE\Google\Chrome\BLBeacon"
-        key = reg.OpenKey(reg.HKEY_CURRENT_USER, reg_path)
-        version, _ = reg.QueryValueEx(key, "version")
-        return version
-    except Exception as e:
-        return None
+    date_string = time.strftime("%Y%m%d-%H%M%S")
+    format_dataframe = pd.DataFrame.from_dict(dictionary)
+    filename = 'Netplan Extract ' + date_string + ".csv"
+
+    clientpath = 'C:/LocalData/dp072/RelayCoordinationStudies'
+    filepath = os.path.join(clientpath, filename)
+    print('Writing data to excel file...')
+    with open(filepath, mode='w', newline='') as file:
+        format_dataframe.to_csv(file, index=False)
+
+
+    print("Output file saved to " + filepath)
+
+if __name__ == '__main__':
+    start = time.time()
+
+    all_feeders = get_inputs()
+    dictionary = query_all_feeders(all_feeders)
+    save_file(dictionary)
+
+    end = time.time()
+    run_time = round(end - start, 6)
+    print(f"Script run time: {run_time} seconds")
 

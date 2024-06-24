@@ -1,14 +1,15 @@
-import study_templates
+from typing import Union
+from fault_level_data import study_templates
 
 
-def short_circuit(app, location: object, ppro: int, bound: str, f_type: str) -> object:
+def short_circuit(app, bound: str, f_type: str, location: Union[object, None] = None, ppro: int = 0) -> object:
     """
     Set the Short-circuit command module and perform a short-circuit calculation
-    :param app: PowerFactory Application
-    :param location: element location of fault. None if All Busbars
-    :param ppro: fault distance from terminal
+    :param app:
     :param bound: 'Max', 'Min'
     :param f_type: 'Phase', 'Ground'
+    :param location: element location of fault. None if All Busbars
+    :param ppro: fault distance from terminal
     :return: Short-Circuit Command
     """
 
@@ -26,17 +27,16 @@ def short_circuit(app, location: object, ppro: int, bound: str, f_type: str) -> 
 
 
 def get_line_current(elmlne: object) -> float:
-    if elmlne.bus1:
-        Ia1 = elmlne.GetAttribute('m:Ikss:bus1:A')
-        Ib1 = elmlne.GetAttribute('m:Ikss:bus1:B')
-        Ic1 = elmlne.GetAttribute('m:Ikss:bus1:C')
+    if elmlne.HasAttribute('bus1'):
+        Ia1 = elmlne.GetAttribute('m:Ikss:bus1:A') * 1000
+        Ib1 = elmlne.GetAttribute('m:Ikss:bus1:B') * 1000
+        Ic1 = elmlne.GetAttribute('m:Ikss:bus1:C') * 1000
+    if elmlne.HasAttribute('bus2'):
+        Ia2 = elmlne.GetAttribute('m:Ikss:bus2:A') * 1000
+        Ib2 = elmlne.GetAttribute('m:Ikss:bus2:B') * 1000
+        Ic2 = elmlne.GetAttribute('m:Ikss:bus2:C') * 1000
 
-    if elmlne.bus2:
-        Ia2 = elmlne.GetAttribute('m:Ikss:bus2:A')
-        Ib2 = elmlne.GetAttribute('m:Ikss:bus2:B')
-        Ic2 = elmlne.GetAttribute('m:Ikss:bus2:C')
-
-    if elmlne.bus1 and elmlne.bus2:
+    if elmlne.HasAttribute('bus1') and elmlne.HasAttribute('bus2'):
         return round(max(Ia1, Ib1, Ic1, Ia2, Ib2, Ic2), 3)
     elif elmlne.bus1:
         return round(max(Ia1, Ib1, Ic1), 3)

@@ -21,11 +21,15 @@ g) Grading not achieved. Attempt manual solution
 # TODO: Think about an optimization algorithm that optimizes one relay at a time.
 
 
-from input_files.input_file import GradingParameters
-from relay_coord import grading_check_iter
+from input_files.input_file import grading_parameters
 from relay_coordination.setting_generators import generate_settings as gs
-import grading_margins as gm
+from relay_coordination import grading_margins as gm
 
+
+# The grading_check_iter variable denotes how many times the script will attempt to generate relay settings that
+# conform to grading constraints before aborting
+
+grading_check_iter = grading_parameters().optimization_iter * 10
 
 def check_settings(relays: list, triggers: list, percentage: float, f_type: str):
     """
@@ -88,7 +92,7 @@ def check_settings(relays: list, triggers: list, percentage: float, f_type: str)
 
     # Relax fuse grading
     if a == b == c == d == grading_check_iter:
-        GradingParameters().fuse_grading -= 0.15
+        grading_parameters().fuse_grading -= 0.15
         e = generate_settings(new_relays, percentage, f_type, eval_type='Exact')
 
     # Add substation bu relays to new_relays list
@@ -100,8 +104,8 @@ def check_settings(relays: list, triggers: list, percentage: float, f_type: str)
 
     # Relax permissible slowest primary and backup clearing times
     if a == b == c == d == e == f == grading_check_iter:
-        GradingParameters().pri_slowest_clear += 1
-        GradingParameters().bu_slowest_clear += 1
+        grading_parameters().pri_slowest_clear += 1
+        grading_parameters().bu_slowest_clear += 1
         g = generate_settings(new_relays, percentage, f_type, eval_type='Exact')
 
     triggers = [a, b, c, d, e, f, g]

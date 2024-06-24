@@ -4,12 +4,13 @@ Export fault level data to Fuse Selection Sheet Master V1.2 excel sheet
 """
 
 import math
+from typing import Union
 from relay_coordination import trip_time as tt
-from input_files import fuse_inputs as fi
+from input_files import data_inputs as di
 from input_files.input_file import GradingParameters
 
 
-def line_fuse_study(all_devices) -> dict[str | float:dict[str | float: str]]:
+def line_fuse_study(all_devices) -> dict[Union[str, float]:dict[Union[str, float]: str]]:
     """
     String 'green'/'red' is appended to results to facilitate conditional formatting in Excel.
     :param all_devices:
@@ -33,7 +34,7 @@ def line_fuse_study(all_devices) -> dict[str | float:dict[str | float: str]]:
     }
 
     for device in all_devices:
-        if hasattr(device, device.relset.rating):
+        if hasattr(device, 'relset.rating'):
             # It's a fuse
             if device.relset.status != 'Existing':
                 # New settings required
@@ -54,7 +55,7 @@ def line_fuse(fuse):
     :return:
     """
 
-    df = fi.fuse_data()
+    df = di.fuse_data()
 
     # Candidate fuses are the Energex standard EDO/MDO fuse sizes (as per Energex Technical Instruction TSD0019i)
     candidate_fuses = {'8T': 1, '16K': 2, '20K': 3, '25K': 4, '40K': 5, '50K': 6, '65K': 7, '80K': 8}

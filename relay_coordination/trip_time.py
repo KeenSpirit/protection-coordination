@@ -1,5 +1,5 @@
-from input_files.fuse_inputs import fuse_data_1 as fd_1, fuse_data_2 as fd_2
-from input_files.input_file import GradingParameters
+from input_files.data_inputs import fuse_data_1 as fd_1, fuse_data_2 as fd_2
+from input_files.input_file import grading_parameters
 
 def curve_parameters(curve: str) -> tuple[float, float]:
     """
@@ -109,14 +109,14 @@ def tms_solver(relay: object, f_type: str, function: str) -> float:
 
     if function == 'primary':
         fault_level = pri_fl
-        op_time = GradingParameters().pri_slowest_clear
+        op_time = grading_parameters().pri_slowest_clear
     else:
         if relay.netdat.downstream_devices:
             if f_type == 'EF':
                 fault_level = min([device.netdat.min_pg_fl for device in relay.netdat.downstream_devices])
             else:
                 fault_level = min([device.netdat.min_2p_fl for device in relay.netdat.downstream_devices])
-            op_time = GradingParameters().bu_slowest_clear
+            op_time = grading_parameters().bu_slowest_clear
         else:
             return False
 

@@ -3,17 +3,17 @@
 """
 
 import copy
-from input_files.input_file import GradingParameters
-import trip_time as tt
-import setting_checks as sc
-import setting_reports as sr
+
+from device_data.eql_relay_data import ProtectionRelay
+from input_files.input_file import grading_parameters
+from relay_coordination import trip_time as tt
+from relay_coordination import setting_checks as sc
+from relay_coordination import setting_reports as sr
+from relay_coordination.setting_checks import grading_check_iter
 from line_fuse_study import study_line_fuse as slf
 
 # Set iterations of optimisation routine
-iterations = GradingParameters().optimization_iter
-# The grading_check_iter variable denotes how many times the script will attempt to generate relay settings that
-# conform to grading constraints before aborting
-grading_check_iter = iterations * 10
+iterations = grading_parameters().optimization_iter
 
 
 def relay_coordination(all_devices: list) -> tuple[list[object], dict]:
@@ -60,7 +60,7 @@ def assess_existing_relays(all_devices):
     :return:
     """
 
-    relays = [device for device in all_devices if hasattr(device, device.cb_interrupt)]
+    relays = [device for device in all_devices if isinstance(device, ProtectionRelay)]
     existing_relays = [relay for relay in relays if relay.relset.status == "Existing"]
 
     for relay in existing_relays:
@@ -71,12 +71,12 @@ def assess_existing_relays(all_devices):
         ef_reach = min_pg_fl / ef_pu
         oc_reach = min_2p_fl / oc_pu
 
-        if ef_reach < GradingParameters().pri_reach_factor or oc_reach < GradingParameters().pri_reach_factor:
+        if ef_reach < grading_parameters().pri_reach_factor or oc_reach < grading_parameters().pri_reach_factor:
             relay.relset.status = "Required"
             continue
 
         # Check if downstream relays exist (don't need to back up ds fuses):
-        ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, device.cb_interrupt)]
+        ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, 'cb_interrupt')]
         if ds_relays:
             # Create list of downstream device min fault levels
             bu_min_pg_fls = [device.netdat.min_pg_fl for device in ds_relays]
@@ -84,7 +84,7 @@ def assess_existing_relays(all_devices):
             # PU < mininium back-up fault level / bu_reach_factor
             ef_bu_reach = min(bu_min_pg_fls) / ef_pu
             oc_bu_reach = min(bu_min_2p_fls) / oc_pu
-            if ef_bu_reach < GradingParameters().bu_reach_factor or oc_bu_reach < GradingParameters().bu_reach_factor:
+            if ef_bu_reach < grading_parameters().bu_reach_factor or oc_bu_reach < grading_parameters().bu_reach_factor:
                 relay.relset.status = "Required"
 
 
@@ -96,8 +96,8 @@ def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, li
     :return:
     """
 
-    # Assess relays
-    relays = [device for device in all_devices if hasattr(device, device.cb_interrupt)]
+    # Assess relays and not fuses
+    relays = [device for device in all_devices if hasattr(device, 'cb_interrupt')]
 
     best_total_trip = 1000000
     best_relays = []
@@ -107,7 +107,7 @@ def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, li
     failed_iter = 0
     for n in range(0, iterations):
         print(f"{f_type} settings iteration {n + 1} of {iterations}")
-        # percentage is a variable that behaves similarly to temperature in simulated annealing. It progressively
+        # Percentage is a variable that behaves similarly to temperature in simulated annealing. It progressively
         # restricts bounds on setting parameter generation to converge on the best settings.
         percentage = 1 - (n / iterations)
         # Generate new relay settings under constraints
@@ -123,11 +123,11 @@ def best_relays(all_devices: list[object], f_type: str) -> tuple[float, list, li
         relays = best_relays
     # If fuse grading was changed, revert the change.
     if triggers[3] == grading_check_iter or triggers[4] == grading_check_iter:
-        GradingParameters().fuse_grading += 0.15
+        grading_parameters().fuse_grading += 0.15
     # If slowest clearing time was changed, revert the change.
     if triggers[5] == grading_check_iter or triggers[6] == grading_check_iter:
-        GradingParameters().pri_slowest_clear -= 1
-        GradingParameters().bu_slowest_clear -= 1
+        grading_parameters().pri_slowest_clear -= 1
+        grading_parameters().bu_slowest_clear -= 1
 
     return best_total_trip, best_relays, triggers, failed_iter
 

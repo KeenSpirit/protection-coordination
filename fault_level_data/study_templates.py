@@ -149,7 +149,7 @@ class UnbalancedLoadFlow:
 
 
 def apply_lf(ComLdf, Balanced=False):
-    """Applies the settintgs from the unbalanced load flow dataclass
+    """applies the settintgs from the unbalanced load flow dataclass
     """
     if Balanced:
         pass

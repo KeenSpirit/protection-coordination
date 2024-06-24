@@ -8,7 +8,6 @@ Create a context manager using the with statement
 
 
 import math
-from typing import Dict, Any
 
 
 class LineFuse:
@@ -30,10 +29,6 @@ class RelaySettings:
         self.status: str = settings[0]
         self.rating: str = settings[1]
 
-        # Data validation
-        if self.status not in ["Existing", "existing", "Required", "required", "New", "new"]:
-            raise Exception("Relay status data error")
-
 
 class NetworkData:
     """"""
@@ -43,10 +38,10 @@ class NetworkData:
         Initialise attributes
         """
         self.voltage: float = network[0]
-        self.i_split: int = network[1]       # Current split n:1
-        self.rating: float = network[2]        # Section conductor 2HR rating. If 0, this isn't a feeder relay
-        self.load: float = network[3]          # Would this be the five year 10% POE peak load?
-        self.ds_capacity: float = network[4]   # Units (A)
+        self.i_split: int = network[1]              # Current split n:1
+        self.load: float = network[2]
+        self.rating: float = network[3]             # Section conductor 2HR rating.
+        self.ds_capacity: float = network[4]        # Units (A)
         self.max_3p_fl: float = network[5]
         self.max_pg_fl: float = network[6]
         self.min_2p_fl: float = network[7]
@@ -60,14 +55,14 @@ class NetworkData:
         self.upstream_devices: list = network[15]     # List of only upstream device that backs up this relay
 
         # Data validation
-        if self.min_2p_fl < self.tr_max_3p < self.max_3p_fl is False:
-            raise Exception("Phase fault level data error")
-        elif self.min_pg_fl < self.tr_max_pg < self.max_pg_fl is False:
-            raise Exception("Ground fault level data error")
-        elif 10 < self.max_tr_size < 1500 == False:
-            raise Exception("Transformer data error")
-        elif 0 < self.load < self.ds_capacity is False:
-            raise Exception("Load data error")
+        # if self.min_2p_fl < self.tr_max_3p < self.max_3p_fl is False:
+        #     raise Exception("Phase fault level data error")
+        # elif self.min_pg_fl < self.tr_max_pg < self.max_pg_fl is False:
+        #     raise Exception("Ground fault level data error")
+        # elif 10 < self.max_tr_size < 2000 is False:
+        #     raise Exception("Transformer data error")
+        # elif 0 < self.load < self.ds_capacity is False:
+        #     raise Exception("Load data error")
 
     def cnvrt_to_11kv(self, value):
         new_value = (self.voltage / 11) * value
@@ -105,48 +100,50 @@ class NetworkData:
 
 
 fuse_list = {
-    1: 'Unknown fuse',
-    2: '1000_80A_Air',
-    3: '1000_80A_Oil',
-    4: '1500 air ins 100A SIBA Max',
-    5: '1500 air ins 100A SIBA Min',
-    6: '1500_100A_Air',
-    7: '1500_120A_oil',
-    8: '15Kmax',
-    9: '15TMax',
-    10: '15TMin',
-    11: '20Kmax',
-    12: '20Kmin',
-    13: '25Kmax',
-    14: '25Kmin',
-    15: '300_35.5A_Air',
-    16: '300_40_Oil',
-    17: '40Kmax',
-    18: '40Kmin',
-    19: '500_40A_Air',
-    20: '500_50A_Oil',
-    21: '50AKEBXO',
-    22: '50Kmax',
-    23: '50Kmin',
-    24: '65Kmax',
-    25: '65N',
-    26: '65Tmax',
-    27: '750_63A_Air',
-    28: '750_63A_Oil',
-    29: '80KMax',
-    30: '8Tmax',
-    31: '8Tmin',
-    32: 'SilvEur_36SWG_2000/5',
-    33: 'SilvEur_36SWG_3000/5',
-    34: 'VIP30_140A',
-    35: 'VIP30_170A',
-    36: 'VIP30_200A',
-    37: 'XWS250NJmax',
-    38: 'XWS250NJmin',
+    '': None,
+    1: 'None',
+    2: 'Unknown fuse',
+    3: '1000_80A_Air',
+    4: '1000_80A_Oil',
+    5: '1500 air ins 100A SIBA Max',
+    6: '1500 air ins 100A SIBA Min',
+    7: '1500_100A_Air',
+    8: '1500_120A_oil',
+    9: '15Kmax',
+    10: '15TMax',
+    11: '15TMin',
+    12: '20Kmax',
+    13: '20Kmin',
+    14: '25Kmax',
+    15: '25Kmin',
+    16: '300_35.5A_Air',
+    17: '300_40_Oil',
+    18: '40Kmax',
+    19: '40Kmin',
+    20: '500_40A_Air',
+    21: '500_50A_Oil',
+    22: '50AKEBXO',
+    23: '50Kmax',
+    24: '50Kmin',
+    25: '65Kmax',
+    26: '65N',
+    27: '65Tmax',
+    28: '750_63A_Air',
+    29: '750_63A_Oil',
+    30: '80KMax',
+    31: '8Tmax',
+    32: '8Tmin',
+    33: 'SilvEur_36SWG_2000/5',
+    34: 'SilvEur_36SWG_3000/5',
+    35: 'VIP30_140A',
+    36: 'VIP30_170A',
+    37: 'VIP30_200A',
+    38: 'XWS250NJmax',
+    39: 'XWS250NJmin',
 }
 
 
-def get_fuse_size(dist_tr: Dict[str:int]) -> str:
+def get_fuse_size(dist_tr: dict[str:int]) -> str:
     """
     Estimated fuse size of 11kV distribution transformer.
     Pole transformer fuses are based on data from Energex Technical Instruction TSD0019i.

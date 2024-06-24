@@ -8,7 +8,6 @@ setting parameter limits are formatted as follows:  [min, max, step size, min2, 
 
 from dataclasses import dataclass
 import math
-from relay_coordination import trip_time as tt
 
 
 class ProtectionRelay:
@@ -74,48 +73,6 @@ class ProtectionRelay:
         new_tms = round((1 / self.manufacturer.tms[2]) * old_tms) / (1 / self.manufacturer.tms[2])
         return new_tms
 
-    def ef_setting_report(self):
-
-        # TODO: Report any setting contraint violations
-        primary_ef_reach = round(self.netdat.min_pg_fl / self.relset.ef_pu, 2)
-        print(f"{self.name} primary ef reach factor: {primary_ef_reach}")
-        if self.netdat.downstream_devices:
-            ds_fl = min([device.netdat.min_pg_fl for device in self.netdat.downstream_devices])
-            bu_ef_reach = round(ds_fl / self.relset.ef_pu, 2)
-            print(f"{self.name} back-up ef reach factor: {bu_ef_reach}")
-            grading_times = []
-            for device in self.netdat.downstream_devices:
-                # Create a list of fault levels over which to compare curves
-                b = [a for a in range(device.netdat.min_pg_fl, device.netdat.max_pg_fl, 1)]
-                for x in b:
-                    # Append a single fault level grade time data point
-                    grading_times.append(tt.relay_trip_time(self, x, f_type='EF') - tt.relay_trip_time(device, x, f_type='EF'))
-            min_grade = round(min(grading_times), 3)
-            print(f"{self.name} min ef grade time: {min_grade}")
-        else:
-            print(f"{self.name} has no downstream devices")
-
-    def oc_setting_report(self):
-
-        # TODO: Report any setting contraint violations
-        primary_oc_reach = round(self.netdat.min_2p_fl / self.relset.oc_pu, 2)
-        print(f"{self.name} primary oc reach factor: {primary_oc_reach}")
-        if self.netdat.downstream_devices:
-            ds_fl = min([device.netdat.min_2p_fl for device in self.netdat.downstream_devices])
-            bu_oc_reach = round(ds_fl / self.relset.oc_pu, 2)
-            print(f"{self.name} back-up oc reach factor: {bu_oc_reach}")
-            grading_times = []
-            for device in self.netdat.downstream_devices:
-                # Create a list of fault levels over which to compare curves
-                b = [a for a in range(device.netdat.min_2p_fl, device.netdat.max_3p_fl, 1)]
-                for x in b:
-                    # Append a single fault level grade time data point
-                    grading_times.append(tt.relay_trip_time(self, x, f_type='EF') - tt.relay_trip_time(device, x, f_type='EF'))
-            min_grade = round(min(grading_times), 3)
-            print(f"{self.name} min oc grade time: {min_grade}")
-        else:
-            print(f"{self.name} has no downstream devices")
-
 
 class RelaySettings:
     """"""
@@ -139,10 +96,6 @@ class RelaySettings:
         self.ef_hiset2: float = settings[13]
         self.ef_min_time2: float = settings[14]
 
-        # Data validation
-        if self.status not in ["Existing", "existing", "Required", "required", "New", "new"]:
-            raise Exception("Relay status data error")
-
 
 class NetworkData:
     """"""
@@ -152,10 +105,10 @@ class NetworkData:
         Initialise attributes
         """
         self.voltage: float = network[0]
-        self.i_split: int = network[1]       # Current split n:1
-        self.load: float = network[3]          # Would this be the five year 10% POE peak load?
-        self.rating: float = network[2]        # Section conductor 2HR rating. If 0, this isn't a feeder relay
-        self.ds_capacity: float = network[4]   # Units (A)
+        self.i_split: int = network[1]              # Current split n:1
+        self.load: float = network[2]
+        self.rating: float = network[3]             # Section conductor 2HR rating. If 0, this isn't a feeder relay
+        self.ds_capacity: float = network[4]        # Units (A)
         self.max_3p_fl: float = network[5]
         self.max_pg_fl: float = network[6]
         self.min_2p_fl: float = network[7]
@@ -168,16 +121,6 @@ class NetworkData:
         self.downstream_devices: list = network[14]   # List of only downstream devices backed up by this relay
         self.upstream_devices: list = network[15]     # List of only upstream device that backs up this relay
 
-        # Data validation
-        if self.min_2p_fl < self.tr_max_3p < self.max_3p_fl is False:
-            raise Exception("Phase fault level data error")
-        elif self.min_pg_fl < self.tr_max_pg < self.max_pg_fl is False:
-            raise Exception("Ground fault level data error")
-        elif 10 < self.max_tr_size < 1500 is False:
-            raise Exception("Transformer data error")
-        elif 0 < self.load < self.ds_capacity is False:
-            raise Exception("Load data error")
-
     def cnvrt_to_11kv(self, value):
         new_value = (self.voltage / 11) * value
         return new_value
@@ -185,18 +128,24 @@ class NetworkData:
     def trnsp_pg_stardelta(self, value):
         """Transpose P-G fault from 11kV to HV of a star-delta transformer"""
 
+        if self.voltage == 11:
+            return value
         new_value = (value * (11/self.voltage))/math.sqrt(3)
         return new_value
 
     def trnsp_2p_stardelta(self, value):
         """Transpose 2-P fault from 11kV to HV of a star-delta transformer"""
 
+        if self.voltage == 11:
+            return value
         new_value = (value/(2/math.sqrt(3))) * (11/self.voltage)
         return new_value
 
     def trnsp_3p_stardelta(self, value):
         """Transpose 3-P fault from 11kV to HV of a star-delta transformer"""
 
+        if self.voltage == 11:
+            return value
         new_value = (self.voltage / 11) * value
         return new_value
 

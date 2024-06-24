@@ -1,8 +1,8 @@
 """ Two types of grading margin may be calculated: Grading with nominal margin depending on the technology type,
  and exact grading margins with parameters specific to the relay and fault level"""
 
-from input_files.input_file import GradingParameters
-import trip_time as tt
+from input_files.input_file import grading_parameters
+import relay_coordination.trip_time as tt
 
 
 def eval_grade_time(relay: object, f_type: str, eval_type: str) -> list[bool]:
@@ -70,7 +70,7 @@ def _grade_time(ds_device: object, us_device: object, f_type: str, eval_type: st
     min_fl, max_fl = _min_max_fl(ds_device, f_type)
     b = [a for a in range(min_fl, max_fl, 1)]
     for x in b:
-        if hasattr(ds_device, ds_device.cb_interrupt):
+        if hasattr(ds_device, 'cb_interrupt'):
             trip_ds_device = tt.relay_trip_time(ds_device, x, f_type)
         else:
             trip_ds_device = tt.fuse_melting_time(ds_device.relset.rating, x)
@@ -92,19 +92,19 @@ def _grading_eval(device: object, device_trip: float, grading_actual: float, eva
     :return:
     """
 
-    if hasattr(device, device.cb_interrupt):
+    if hasattr(device, 'cb_interrupt'):
         if eval_type == 'Exact':
             grading_required = (((2 * device.manufacturer.timing_error + device.ct.ect) / 100) * device_trip
                                 + device.cb_interrupt + device.manufacturer.overshoot
                                 + device.manufacturer.safety_margin)
         elif device.manufacturer.technology == "Electro-mechanical":
-            grading_required = GradingParameters().mechanical_grading
+            grading_required = grading_parameters().mechanical_grading
         elif device.manufacturer.technology == "Static":
-            grading_required = GradingParameters().static_grading
+            grading_required = grading_parameters().static_grading
         else:                       # device.manufacturer.technology == "Digital"
-            grading_required = GradingParameters().digital_grading
+            grading_required = grading_parameters().digital_grading
     else:
-        grading_required = GradingParameters().fuse_grading
+        grading_required = grading_parameters().fuse_grading
 
     if grading_actual >= grading_required:
         eval = True

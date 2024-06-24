@@ -1,4 +1,3 @@
-from typing import Dict
 
 def find_end_points(feeder: object) -> list[object]:
     """
@@ -38,7 +37,7 @@ def find_end_points(feeder: object) -> list[object]:
     return floating_lines
 
 
-def get_floating_terminals(feeder: object, devices_section: Dict[object:object]) -> Dict[object:Dict[object:object]]:
+def get_floating_terminals(feeder: object, devices_section: dict[object:object]) -> dict[object:dict[object:object]]:
     """
     Outputs all floating terminal objects with their associated line objects for all devices
     :param feeder:

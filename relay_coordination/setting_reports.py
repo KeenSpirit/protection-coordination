@@ -1,6 +1,7 @@
-import trip_time as tt
-from relay_coord import iterations, grading_check_iter
+from relay_coordination import trip_time as tt
+from relay_coordination.setting_checks import grading_check_iter
 
+iterations = round(grading_check_iter / 10)
 
 def ef_report(best_relays):
     """
@@ -213,27 +214,6 @@ def triggers_report(ef_triggers, oc_triggers, failed_ef, failed_oc):
     trigger_report_oc = {"OC Setting Notes": oc_notes}
 
     return {**trigger_report_ef, **trigger_report_oc}
-
-
-def print_results(best_settings_ef, best_settings_oc, best_total_trip_oc, best_total_trip_ef):
-    """
-    DEPRECATED
-    Prints results to the console output window
-    """
-
-    # Print results
-    print("Optimized relay settings:")
-    for best_relay in best_settings_oc:
-        print(vars(best_relay.relset))
-    for relay in best_settings_oc:
-        relay.oc_setting_report()
-        relay.ef_setting_report()
-    print(f"Total oc trip time: {best_total_trip_oc} seconds")
-    print(f"Total ef trip time: {best_total_trip_ef} seconds")
-
-    # Plot results
-    plot_results(best_settings_ef, "EF")
-    plot_results(best_settings_oc, "OC")
 
 
 def plot_results(relays, f_type):

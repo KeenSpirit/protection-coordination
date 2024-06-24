@@ -3,7 +3,7 @@ Pick-up generator functions:
 oc_pick_up(relay)
 """
 
-from input_files.input_file import GradingParameters
+from input_files.input_file import grading_parameters
 
 
 def pick_up(relay, f_type):
@@ -99,7 +99,7 @@ def pu_lower_bounds(relay, f_type):
 
     # Check if downstream relays exist (don't need to back up ds fuses):
     ds_relays = [device for device in relay.netdat.downstream_devices
-                 if hasattr(device, device.cb_interrupt)]
+                 if hasattr(device, 'cb_interrupt')]
     if not ds_relays:
         ds_pu_factor = 0
     else:
@@ -136,11 +136,10 @@ def pu_upper_bounds(relay, f_type):
         min_fl = relay.netdat.min_2p_fl
     else:
         min_fl = relay.netdat.min_pg_fl
-    pri_reach = min_fl / GradingParameters().pri_reach_factor
+    pri_reach = min_fl / grading_parameters().pri_reach_factor
 
     # Check if upstream existing devices exist:
-    exist_upstream_device = [device for device in relay.netdat.upstream_devices
-                            if device.relset.status == "Existing"]
+    exist_upstream_device = [device for device in relay.netdat.upstream_devices if device.relset.status == "Existing"]
     if not exist_upstream_device:
         upstream_pu = 9999
     else:
@@ -151,7 +150,7 @@ def pu_upper_bounds(relay, f_type):
             upstream_pu = min([device.relset.oc_pu for device in exist_upstream_device])
 
     # Check if downstream relays exist (don't need to back up ds fuses):
-    ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, device.cb_interrupt)]
+    ds_relays = [device for device in relay.netdat.downstream_devices if hasattr(device, 'cb_interrupt')]
     if not ds_relays:
         bu_reach = 9999
     else:
@@ -162,7 +161,7 @@ def pu_upper_bounds(relay, f_type):
         else:
             bu_min_fl = [device.netdat.min_2p_fl for device in ds_relays]
         # PU < mininium back-up fault level / bu_reach_factor
-        bu_reach = min(bu_min_fl) / GradingParameters().bu_reach_factor
+        bu_reach = min(bu_min_fl) / grading_parameters().bu_reach_factor
 
     upper_bounds = {
         "pri_reach": pri_reach, "bu_reach": bu_reach, "upstream_pu": upstream_pu, "max_value": 3000

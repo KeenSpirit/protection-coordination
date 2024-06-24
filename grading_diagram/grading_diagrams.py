@@ -2,7 +2,7 @@ import shutil
 import os
 from pathlib import Path
 import time
-import xlwings as xw
+# import xlwings as xw
 import pandas as pd
 
 
@@ -303,8 +303,10 @@ def create_diagrams(all_devices):
     Relay Coordination Results: Excel file produced by the relay coordination program. Stored in user's home directory
     Relay Grading Diagram
     """
+    pass
+    # temporarly disabled below code whilst rest of code base is tested
 
-    app = xw.App(visible=True)
+    """app = xw.app(visible=True)
 
     oc_relay_coordination, ef_relay_coordination = create_excel_files()
 
@@ -327,8 +329,4 @@ def create_diagrams(all_devices):
     # faults_sheet(oc_workbook, output_file, "OC")
 
     # Close Excel
-    app.quit()
-
-
-if __name__ == '__main__':
-    main()
+    app.quit()"""

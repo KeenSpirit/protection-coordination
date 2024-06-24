@@ -8,7 +8,7 @@ ef_hiset_2(relay, critical_fl)
 
 from relay_coordination import trip_time as tt
 from device_data import eql_fuse_data as fd
-from input_files.input_file import GradingParameters
+from input_files.input_file import grading_parameters
 
 def ef_hiset_mintime(relay):
     """
@@ -143,7 +143,7 @@ def ef_hiset_2(relay, ef_hiset, min_min_time):
 
     if ef_hiset <= relay.netdat.tr_max_pg:
         ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, ef_hiset)
-        fuse_min_time = ds_melting_time + GradingParameters().fuse_grading
+        fuse_min_time = ds_melting_time + grading_parameters().fuse_grading
     else:
         fuse_min_time = 0
     # Ensure hiset min time grades over fuse
@@ -299,7 +299,7 @@ def oc_hiset_2(relay, oc_hiset, min_min_time):
 
     if oc_hiset <= relay.netdat.tr_max_3p:
         ds_melting_time = fd.fuse_melting_time(relay.netdat.max_tr_fuse, oc_hiset)
-        fuse_min_time = ds_melting_time + GradingParameters().fuse_grading
+        fuse_min_time = ds_melting_time + grading_parameters().fuse_grading
     else:
         fuse_min_time = 0
     # Ensure hiset min time grades 0.05 over inrush and over fuse

@@ -1,6 +1,8 @@
 from pathlib import Path
 import pandas as pd
-from typing import Any
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+
 
 
 def save_dataframe(app, study_type, gen_info: list, all_devices: list,
@@ -15,19 +17,17 @@ def save_dataframe(app, study_type, gen_info: list, all_devices: list,
     date_string = time.strftime("%Y%m%d-%H%M%S")
     filename = 'Protection Study Results ' + date_string + ".xlsx"
 
-    home_path = str(Path.home())
-    save_path_1 = '\\\\client\\' + home_path[0] + '$' + home_path[2:] + '\\RelayCoordinationStudies'
-    if Path(save_path_1).is_dir():
-        # save the output file to the user's home directory
-        filepath = os.path.join(save_path_1, filename)
-        app.PrintPlain("Output file saved to " + filepath)
-    else:
-        # When running a local installation of PowerFactory
-        save_path_2 = home_path + '\\RelayCoordinationStudies'
-        filepath = os.path.join(save_path_2, filename)
-        app.PrintPlain("Output file saved to " + filepath)
+    user = Path.home().name
+    basepath = Path('//client/c$/LocalData') / user
 
-    feeder_name, study_type, grid_data_df, study_results, df_device_list = (
+    if basepath.exists():
+        clientpath = basepath / Path('RelayCoordinationStudies')
+    else:
+        clientpath = Path('c:/LocalData') / user / Path('RelayCoordinationStudies')
+    filepath = os.path.join(clientpath, filename)
+    app.PrintPlain("Output file saved to " + filepath)
+
+    feeder_name, study_type, grid_data_df, study_results, dfls_list, sect_trs = (
         format_results(study_type, gen_info, all_devices, setting_report, detailed_fls))
 
     #TODO: use Excel conditional formatting rules
@@ -44,11 +44,21 @@ def save_dataframe(app, study_type, gen_info: list, all_devices: list,
 
         # Study Results sheet
         study_results.to_excel(writer, sheet_name='Study Results', index=False)
+        # Detailed Fault Levels sheet
+        for i, device in enumerate(dfls_list):
+            count = (i + 1) * 6 - 6
+            device.to_excel(writer, sheet_name='Detailed Fault Levels', startrow=0, startcol=count, index=False)
 
-        # Detailed fault levels sheet
-        for i, device in df_device_list:
-            count = i * 5 - 4
-            device.to_excel(writer, sheet_name='Detailed fault levels', startrow=3, startcol=count)
+    wb = load_workbook(filepath)
+    ws = wb['General Information']
+    adjust_col_width(ws)
+    ws = wb['Study Results']
+    adjust_col_width(ws)
+    ws = wb['Detailed Fault Levels']
+    adjust_col_width(ws)
+
+    # Save the adjusted workbook
+    wb.save(filepath)
 
 
 def format_results(study_type, gen_info, all_devices, setting_report, detailed_fls):
@@ -64,11 +74,11 @@ def format_results(study_type, gen_info, all_devices, setting_report, detailed_f
 
     # Format 'General Information' data
     instructs_lookup = {
-        1: 'Full study (fault levels + relay coordination + grading diagram)',
-        2: 'Fault level study only',
-        3: 'Relay coordination study only',
-        4: 'Create a grading diagram only',
-        5: 'Line fuse study'
+        2: 'Full study (fault levels & relay coordination & grading diagram)',
+        3: 'Fault level study only',
+        4: 'Relay coordination study only',
+        5: 'Create a grading diagram only',
+        6: 'Line fuse study'
     }
     feeder_name = gen_info[0]
     study_type = instructs_lookup[study_type]
@@ -78,28 +88,48 @@ def format_results(study_type, gen_info, all_devices, setting_report, detailed_f
     # Format 'Study Results' data
     formatted_dev = format_devices(all_devices)
     formatted_dev_pd = pd.DataFrame.from_dict(formatted_dev)
-    formatted_dev_pd = formatted_dev_pd.set_index('Site Name').transpose()
     setting_report_pd = pd.DataFrame.from_dict(setting_report)
     study_results = pd.concat([formatted_dev_pd, setting_report_pd])
     study_results = study_results.fillna("")
 
     # Format 'Detailed fault levels' data
-    pg_max_all, phase_max_all, pg_min_all, phase_min_all, section_loads, max_tr_pg_fls, max_tr_p_fls = detailed_fls
-    device_list = [device for device in pg_max_all.keys]
-    df_device_list = []
+    pg_max_all, phase_max_all, pg_min_all, phase_min_all, section_loads = detailed_fls
+
+    def _loc_name_convert(dict):
+        new_dic = {}
+        for key, value in dict.items():
+            new_dic[key.loc_name] = value
+        return new_dic
+
+    # Format section_loads data
+    sect_trs = format_tfmrs(section_loads)
+
+    device_list = [device for device in pg_max_all.keys()]
+    dfls_list = []
     for device in device_list:
         dev_dict = {
-            'Max PG fault': pg_max_all[device],
-            'Max 3P fault': phase_max_all[device],
-            'Min PG fault': pg_min_all[device],
-            'Min 2P fault': phase_min_all[device]
+            'Max PG fault': _loc_name_convert(pg_max_all[device]),
+            'Max 3P fault': _loc_name_convert(phase_max_all[device]),
+            'Min PG fault': _loc_name_convert(phase_max_all[device]),
+            'Min 2P fault': _loc_name_convert(phase_max_all[device])
         }
-        df = pd.DataFrame(dev_dict)
-        df_device_list.append(df)
-    # TODO: the above dataframes need to be sorted from largest fault level to smallest
-    # TODO: output section_loads, max_tr_pg_fls, max_tr_p_fls variables
+        df = pd.DataFrame.from_dict(dev_dict, orient='index').transpose().reset_index()
+        df = df.rename(columns={'index': device.loc_name})
+        # Sort fault levels by Max PG fault
+        df_sorted = df.sort_values(by=df.columns[1], ascending=False)
+        df_sorted.insert(0, 'Tfmr Size (kVA)', '')
 
-    return feeder_name, study_type, grid_data_df, study_results, df_device_list
+        # fill the transformer size column with terminal transformer size data.
+        for df in sect_trs:
+            if df.columns[0] == device.loc_name:
+                target_df = df
+                break
+        tr_dict = pd.Series(target_df['Tfmr Size (kVA)'].values, index=target_df[device.loc_name]).to_dict()
+        df_sorted['Tfmr Size (kVA)'] = df_sorted[device.loc_name].map(tr_dict).fillna('')
+
+        dfls_list.append(df_sorted)
+
+    return feeder_name, study_type, grid_data_df, study_results, dfls_list, sect_trs
 
 
 def format_devices(all_devices: list) -> list[dict]:
@@ -115,46 +145,132 @@ def format_devices(all_devices: list) -> list[dict]:
         else:
             return ''
 
-    device_list = []
+    device_list = {
+        'Site Name':
+            [
+                'Voltage (kV)',
+                'Current split n:1',
+                'load (A)',
+                'Rating  (A)',
+                'DS capacity  (A)',
+                'Max 3p FL',
+                'Max PG FL',
+                'Min 2P FL',
+                'Min PG FL',
+                'Max DS TR (Site name)',
+                'Max TR size (kVA)',
+                'Max TR fuse',
+                'TR Max 3P ',
+                'TR max PG',
+                'DS devices',
+                'BU device',
+                'Device',
+                'Status',
+                'CT saturation',
+                'CT composite error',
+                'CT ratio',
+                'OC pick up',
+                'OC TMS',
+                'OC Curve',
+                'OC Hiset',
+                'OC Min time (s)',
+                'OC Hiset 2',
+                'OC Min time 2 (s)',
+                'EF pick up',
+                'EF TMS',
+                'EF Curve',
+                'EF Hiset',
+                'EF Min time (s)',
+                'EF Hiset 2',
+                'EF Min time 2 (s)'
+             ]
+
+    }
+
     for device in all_devices:
-        device_dic = {
-            'Site Name': device.name,
-            'Voltage (kV)': device.netdat.voltage,
-            'Current split n:1': device.netdat.i_split,
-            'DS capacity  (kVA)': device.netdat.ds_capacity,
-            'Max 3p FL': device.netdat.max_3p_fl,
-            'Max PG FL': device.netdat.max_pg_fl,
-            'Min 2P FL': device.netdat.min_2p_fl,
-            'Min PG FL': device.netdat.min_pg_fl,
-            'Max DS TR (Site name)': device.netdat.tr_max_name,
-            'Max TR size (kVA)': device.netdat.max_tr_size,
-            'Max TR fuse': device.netdat.max_tr_fuse,
-            'TR Max 3P ': device.netdat.tr_max_3p,
-            'TR max PG': device.netdat.tr_max_pg,
-            'DS devices': device.netdat.downstream_devices,
-            'BU device': device.netdat.upstream_devices,
-            'Device': device.manufacturer.__name__,
-            'Status': device.relset.status,
-            'CT saturation': check_att(device, 'ct.saturation'),
-            'CT composite error': check_att(device, 'ct.ect'),
-            'CT ratio': check_att(device, 'ct.ratio'),
-            'load (A)': device.netdat.load,
-            'Rating  (A)': device.netdat.rating,
-            'OC pick up': check_att(device, 'relset.oc_pu'),
-            'OC TMS': check_att(device, 'relset.oc_tms'),
-            'OC Curve': check_att(device, 'relset.oc_curve'),
-            'OC Hiset': check_att(device, 'relset.oc_hiset'),
-            'OC Min time (s)': check_att(device, 'relset.oc_min_time'),
-            'OC Hiset 2': check_att(device, 'relset.oc_hiset2'),
-            'OC Min time 2 (s)': check_att(device, 'relset.oc_min_time2'),
-            'EF pick up': check_att(device, 'relset.ef_pu'),
-            'EF TMS': check_att(device, 'relset.ef_tms'),
-            'EF Curve': check_att(device, 'relset.ef_curve'),
-            'EF Hiset': check_att(device, 'relset.ef_hiset'),
-            'EF Min time (s)': check_att(device, 'relset.ef_min_time'),
-            'EF Hiset 2': check_att(device, 'relset.ef_hiset2'),
-            'EF Min time 2 (s)': check_att(device, 'relset.ef_min_time2')
-        }
-        device_list.append(device_dic)
+        device.netdat.downstream_devices = [device.name for device in device.netdat.downstream_devices]
+        device.netdat.downstream_devices = ', '.join(device.netdat.downstream_devices)
+        device.netdat.upstream_devices = [device.name for device in device.netdat.upstream_devices]
+        device.netdat.upstream_devices = ', '.join(device.netdat.upstream_devices)
+        device_list[device.name] = [
+            device.netdat.voltage,
+            device.netdat.i_split,
+            device.netdat.load,
+            device.netdat.rating,
+            device.netdat.ds_capacity,
+            device.netdat.max_3p_fl,
+            device.netdat.max_pg_fl,
+            device.netdat.min_2p_fl,
+            device.netdat.min_pg_fl,
+            device.netdat.tr_max_name,
+            device.netdat.max_tr_size,
+            device.netdat.max_tr_fuse,
+            device.netdat.tr_max_3p,
+            device.netdat.tr_max_pg,
+            device.netdat.downstream_devices,
+            device.netdat.upstream_devices,
+            device.manufacturer.__name__,
+            device.relset.status,
+            check_att(device, 'ct.saturation'),
+            check_att(device, 'ct.ect'),
+            check_att(device, 'ct.ratio'),
+            check_att(device, 'relset.oc_pu'),
+            check_att(device, 'relset.oc_tms'),
+            check_att(device, 'relset.oc_curve'),
+            check_att(device, 'relset.oc_hiset'),
+            check_att(device, 'relset.oc_min_time'),
+            check_att(device, 'relset.oc_hiset2'),
+            check_att(device, 'relset.oc_min_time2'),
+            check_att(device, 'relset.ef_pu'),
+            check_att(device, 'relset.ef_tms'),
+            check_att(device, 'relset.ef_curve'),
+            check_att(device, 'relset.ef_hiset'),
+            check_att(device, 'relset.ef_min_time'),
+            check_att(device, 'relset.ef_hiset2'),
+            check_att(device, 'relset.ef_min_time2')
+        ]
 
     return device_list
+
+
+def format_tfmrs(section_loads):
+    """
+
+    :param section_loads:
+    :return:
+    """
+
+    device_list = []
+    for device, loads in section_loads.items():
+        format_sect_loads = {
+            device.loc_name: [elmlod.bus1.cterm.loc_name for elmlod in loads],
+            'Tfmr Size (kVA)': [round(elmlod.Strat) for elmlod in loads]
+        }
+        format_sect_loads = pd.DataFrame.from_dict(format_sect_loads)
+        device_list.append(format_sect_loads)
+    return device_list
+
+
+def adjust_col_width(ws):
+    """
+    Adjust column width of given Excel sheet
+    :param ws:
+    :return:
+    """
+
+    # Adjust the column widths
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter  # Get the column name
+
+        # Iterate over all cells in the column to find the maximum length
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+
+        # Set the column width to the maximum length found
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width
